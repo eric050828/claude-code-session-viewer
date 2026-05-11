@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs when a new commit lands on the same branch / PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check (via next build)
+        run: npm run build
+
+      - name: Leak check
+        # The same gate `prepublishOnly` uses locally — runs against every PR
+        # so leaks get caught well before someone pushes a release tag.
+        run: node scripts/check-no-leaks.js
+
+      - name: CLI smoke test
+        # Exercise the JS-only query path (no server) to catch obvious breakage.
+        # Uses an empty projects dir so the test is independent of CI host state.
+        env:
+          CCSV_PROJECTS_DIR: /tmp/no-projects
+        run: |
+          mkdir -p /tmp/no-projects
+          node bin/cli.js --help > /dev/null
+          node bin/cli.js projects --json
+          node bin/cli.js stats --json

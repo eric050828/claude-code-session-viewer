@@ -36,7 +36,35 @@ npm pack --dry-run | tail -20   # what would be uploaded
 node scripts/check-no-leaks.js  # confirm no /home/<user> leaks
 ```
 
-## Cutting a release
+## Automated path (recommended)
+
+Once `NPM_TOKEN` is configured as a repo secret (see below), every push of a
+`v*` tag triggers `.github/workflows/release.yml`:
+
+```bash
+$EDITOR CHANGELOG.md                              # move [Unreleased] → [X.Y.Z]
+git commit -am "docs: changelog for vX.Y.Z"
+npm version <patch|minor|major> -m "chore: release v%s"
+git push --follow-tags                            # the tag push fires CI
+```
+
+CI then runs `npm ci` → build + scrub → leak check → `npm publish --access
+public --provenance` → `gh release create`. Provenance gives the npm package
+page a "verified" badge linking back to the source commit + workflow run.
+
+Watch the run at `https://github.com/eric050828/claude-code-session-viewer/actions`.
+On failure, no publish happens and no tag-side effects need cleaning.
+
+### One-time setup for CI
+
+1. Generate a Classic **Automation** token at
+   <https://www.npmjs.com/settings/eric050828/tokens> (Automation type
+   bypasses 2FA by design — that's the only kind CI can use today).
+2. Add it as a secret named `NPM_TOKEN`:
+   `Settings → Secrets and variables → Actions → New repository secret`.
+3. Done. The workflow uses `secrets.NPM_TOKEN` automatically.
+
+## Cutting a release manually
 
 > Replace `<level>` with `patch`, `minor`, or `major` per semver. `npm version`
 > does the version bump, commit, and tag in one shot.

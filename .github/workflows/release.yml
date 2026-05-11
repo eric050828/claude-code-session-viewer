@@ -1,0 +1,95 @@
+name: Release
+
+# Triggers when a tag matching v* is pushed. Bumping with `npm version` locally
+# produces the tag for you; pushing it (`git push --follow-tags`) fires this.
+on:
+  push:
+    tags:
+      - "v*"
+
+# `contents: write` lets gh release create write to the repo.
+# `id-token: write` enables npm provenance — the signed attestation that proves
+# this exact tarball was built by this workflow from this commit. Shows as a
+# "verified" badge on the package page; costs nothing to leave on.
+permissions:
+  contents: write
+  id-token: write
+
+# Don't let two release runs collide for the same tag, but don't cancel
+# either — the second push has to wait until the first finishes (or fails).
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history lets `gh release create --generate-notes` see prior
+          # tags so it can produce a useful diff if CHANGELOG isn't present.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tag matches package.json version
+        # Catch the "I bumped the tag but forgot to bump package.json" mistake
+        # before we ship a tarball whose version doesn't match the git tag.
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Releasing version $PKG_VERSION (tag $GITHUB_REF_NAME)"
+
+      - name: Build + scrub paths
+        run: npm run build
+
+      - name: Leak check
+        run: node scripts/check-no-leaks.js
+
+      - name: Publish to npm
+        # `--provenance` requires id-token: write (set above) plus a public
+        # package with a valid repository field. It records the source commit,
+        # workflow, and runner identity into a Sigstore attestation.
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Pull the section for this version out of CHANGELOG.md if it exists,
+          # otherwise fall back to GitHub's auto-generated notes from commits.
+          NOTES=$(awk "
+            /^## \[$VERSION\]/         { in_section = 1; next }
+            in_section && /^## \[/     { exit }
+            in_section                 { print }
+          " CHANGELOG.md || true)
+
+          if [ -n "$NOTES" ]; then
+            echo "Using CHANGELOG.md section for $VERSION"
+            printf '%s\n' "$NOTES" | gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file -
+          else
+            echo "No CHANGELOG section found; generating notes from commits"
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi
