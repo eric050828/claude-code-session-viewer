@@ -1,0 +1,230 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 8% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible focus indicator for keyboard users, applied broadly so individual
+     components don't each need to reinvent it. Mouse clicks use :focus-visible
+     heuristics so the ring doesn't appear on click. */
+  :where(button, [role="button"], a, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    @apply outline-none ring-2 ring-brand/50 ring-offset-1 ring-offset-background;
+  }
+  :where(input, textarea, select):focus-visible {
+    @apply outline-none ring-2 ring-brand/50;
+  }
+}
+
+/* Reduced motion: honor user preference globally. Components can still use
+   `motion-safe:` for opt-in animations; this nukes everything else. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .markdown-body {
+    @apply text-sm leading-relaxed;
+  }
+  .markdown-body p {
+    @apply my-2;
+  }
+  .markdown-body p:first-child {
+    @apply mt-0;
+  }
+  .markdown-body p:last-child {
+    @apply mb-0;
+  }
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3,
+  .markdown-body h4 {
+    @apply font-semibold mt-4 mb-2;
+  }
+  .markdown-body h1 {
+    @apply text-lg;
+  }
+  .markdown-body h2 {
+    @apply text-base;
+  }
+  .markdown-body h3 {
+    @apply text-sm;
+  }
+  .markdown-body ul,
+  .markdown-body ol {
+    @apply pl-6 my-2;
+  }
+  .markdown-body ul {
+    @apply list-disc;
+  }
+  .markdown-body ol {
+    @apply list-decimal;
+  }
+  .markdown-body li {
+    @apply my-1;
+  }
+  .markdown-body code {
+    @apply rounded bg-muted px-1 py-0.5 text-[0.85em] font-mono;
+  }
+  .markdown-body pre {
+    @apply rounded-md bg-muted/50 p-3 my-3 overflow-x-auto;
+  }
+  .markdown-body pre code {
+    @apply bg-transparent p-0 text-xs;
+  }
+  .markdown-body a {
+    @apply text-brand underline underline-offset-2;
+  }
+  .markdown-body blockquote {
+    @apply border-l-2 border-border pl-4 italic text-muted-foreground my-2;
+  }
+  .markdown-body table {
+    @apply w-full border-collapse my-3 text-xs;
+  }
+  .markdown-body th,
+  .markdown-body td {
+    @apply border border-border px-2 py-1;
+  }
+
+  .highlight-mark {
+    @apply bg-brand/30 text-foreground rounded px-0.5;
+  }
+
+  /* Virtualize long conversation lists for free: the browser skips painting
+     off-screen message blocks and reserves a stable layout slot for each.
+     Cuts paint cost on 1000+ message sessions dramatically with zero JS. */
+  [data-event-uuid] {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 160px;
+  }
+}
+
+/* highlight.js: dark = github-dark, light = github-light */
+.hljs {
+  background: transparent;
+}
+
+/* Light (default) — github-light */
+.hljs { color: #1f2328; }
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-deletion,
+.hljs-meta { color: #cf222e; }
+.hljs-string,
+.hljs-attr,
+.hljs-name,
+.hljs-doctag,
+.hljs-attribute { color: #0a3069; }
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-type,
+.hljs-class { color: #953800; }
+.hljs-comment,
+.hljs-quote { color: #6e7781; font-style: italic; }
+.hljs-number,
+.hljs-literal,
+.hljs-symbol { color: #0550ae; }
+.hljs-title,
+.hljs-section,
+.hljs-function { color: #8250df; }
+.hljs-variable,
+.hljs-template-variable { color: #953800; }
+.hljs-addition { color: #116329; background: rgba(46, 160, 67, 0.15); }
+
+/* Dark override — github-dark */
+.dark .hljs { color: #c9d1d9; }
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-deletion,
+.dark .hljs-meta { color: #ff7b72; }
+.dark .hljs-string,
+.dark .hljs-attr,
+.dark .hljs-name,
+.dark .hljs-doctag,
+.dark .hljs-attribute { color: #a5d6ff; }
+.dark .hljs-built_in,
+.dark .hljs-builtin-name,
+.dark .hljs-type,
+.dark .hljs-class { color: #ffa657; }
+.dark .hljs-comment,
+.dark .hljs-quote { color: #8b949e; font-style: italic; }
+.dark .hljs-number,
+.dark .hljs-literal,
+.dark .hljs-symbol { color: #79c0ff; }
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-function { color: #d2a8ff; }
+.dark .hljs-variable,
+.dark .hljs-template-variable { color: #ffa657; }
+.dark .hljs-addition { color: #aff5b4; background: rgba(46, 160, 67, 0.15); }

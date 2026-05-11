@@ -1,0 +1,82 @@
+{
+  "name": "claude-code-session-viewer",
+  "version": "0.1.0",
+  "description": "Local web viewer + CLI for browsing Claude Code session logs in ~/.claude/projects/",
+  "license": "MIT",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "anthropic",
+    "session-viewer",
+    "jsonl",
+    "ccsv",
+    "cli",
+    "devtools"
+  ],
+  "homepage": "https://github.com/eric050828/claude-code-session-viewer#readme",
+  "bugs": {
+    "url": "https://github.com/eric050828/claude-code-session-viewer/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eric050828/claude-code-session-viewer.git"
+  },
+  "bin": {
+    "claude-code-session-viewer": "bin/cli.js",
+    "ccsv": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    ".next/standalone",
+    ".next/static",
+    "public",
+    "skills",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "next dev -p 3838",
+    "build": "next build && node scripts/scrub-build.js",
+    "start": "next start -p 3838",
+    "cli": "node bin/cli.js",
+    "release:dry": "npm run build && node scripts/check-no-leaks.js && npm pack --dry-run",
+    "prepublishOnly": "npm run build && node scripts/check-no-leaks.js"
+  },
+  "dependencies": {
+    "next": "14.2.18",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "lucide-react": "^0.469.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.5",
+    "class-variance-authority": "^0.7.1",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-tooltip": "^1.1.6",
+    "@radix-ui/react-scroll-area": "^1.2.2",
+    "@radix-ui/react-collapsible": "^1.1.2",
+    "@radix-ui/react-slot": "^1.1.1",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "rehype-highlight": "^7.0.1",
+    "highlight.js": "^11.10.0",
+    "fuse.js": "^7.0.0",
+    "diff": "^7.0.0",
+    "open": "^10.1.0",
+    "get-port": "^7.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "@types/diff": "^6.0.0",
+    "tailwindcss": "^3.4.17",
+    "postcss": "^8.4.49",
+    "autoprefixer": "^10.4.20",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}
