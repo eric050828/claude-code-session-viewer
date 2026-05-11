@@ -6,6 +6,23 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-11
+
+### Notes
+
+Republished the initial feature set under a new version because the previous
+`0.1.0` was permanently reserved on npm after an earlier unpublish. No code
+changes vs. the unreleased `0.1.0` from the same day — see that section below
+for the full feature inventory.
+
+### Changed
+
+- README: install/usage rewritten for the npm-published flow
+  (`npm install -g` / `npx`).
+- `scripts/check-no-leaks.js`: company tokens + non-public-provider email
+  pattern added; vendored `.next/standalone/node_modules/` excluded from the
+  email sweep (third-party maintainer emails aren't leaks).
+
 ## [0.1.0] — Initial release
 
 ### Added
@@ -63,5 +80,6 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - `translate="no"` on identifiers (session IDs, tool names, paths) to stop
   browser auto-translation from mangling them.
 
-[Unreleased]: https://github.com/eric050828/claude-code-session-viewer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/eric050828/claude-code-session-viewer/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/eric050828/claude-code-session-viewer/releases/tag/v0.1.1
 [0.1.0]: https://github.com/eric050828/claude-code-session-viewer/releases/tag/v0.1.0
