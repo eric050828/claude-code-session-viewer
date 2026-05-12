@@ -87,21 +87,21 @@ It's the same data — ccsv just refuses to make you read jsonl by hand.
 
 ```mermaid
 flowchart LR
-  jsonl[<code>~/.claude/projects/</code><br/><b>*.jsonl</b>]
-  parser[Streaming<br/>jsonl parser]
-  cache[(<code>~/.cache/ccsv/</code><br/>session-meta + search items)]
-  idx[(In-memory<br/>fuse.js index)]
-  api[Next.js<br/>API routes]
-  sse[SSE stream]
-  ui[Web UI<br/>React]
-  cli[CLI subcommands<br/>pure Node]
+  jsonl["~/.claude/projects/<br/><b>*.jsonl</b>"]
+  parser["Streaming<br/>jsonl parser"]
+  cache[("~/.cache/ccsv/<br/>session-meta")]
+  idx[("In-memory<br/>fuse.js index")]
+  api["Next.js<br/>API routes"]
+  sse["SSE stream<br/>(poll for new lines)"]
+  ui["Web UI<br/>React"]
+  cli["CLI subcommands<br/>pure Node"]
 
-  jsonl -- mtime+size keyed --> parser
+  jsonl -- "mtime+size keyed" --> parser
   parser --> cache
   parser --> idx
   cache --> api
   idx --> api
-  jsonl -. fs.watch .-> sse
+  jsonl -.-> sse
   api --> ui
   sse --> ui
   jsonl --> cli
