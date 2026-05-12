@@ -17,6 +17,12 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
+    /* role colors: 700-ish in light mode for readable text on white */
+    --role-user:       200 95% 32%;   /* sky-700  #0369A1  */
+    --role-assistant:  15 56% 50%;    /* brand orange a bit deeper for AA on white */
+    --role-system:     263 70% 50%;   /* violet-700  #6D28D9 */
+    --role-tool:       142 71% 29%;   /* green-700  #15803D */
+    --role-attachment: 26 89% 37%;    /* amber-700  #B45309 */
   }
 
   .dark {
@@ -33,6 +39,12 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
+    /* role colors: 300s-400s for readable text on near-black */
+    --role-user:       198 93% 74%;   /* sky-300  #7DD3FC */
+    --role-assistant:  15 60% 60%;    /* brand     #D97757 */
+    --role-system:     258 89% 76%;   /* violet-400 #A78BFA */
+    --role-tool:       141 77% 73%;   /* green-300 #86EFAC */
+    --role-attachment: 47 96% 64%;    /* amber-300 #FCD34D */
   }
 
   * {

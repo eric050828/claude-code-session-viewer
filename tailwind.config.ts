@@ -31,12 +31,14 @@ const config: Config = {
           DEFAULT: "#D97757",
           fg: "#FFF7F2",
         },
+        // Role colors are theme-aware: see --role-* CSS vars in globals.css.
+        // Light mode uses 700-ish (readable on white), dark uses 300-ish.
         role: {
-          user: "#7DD3FC",
-          assistant: "#D97757",
-          system: "#A78BFA",
-          tool: "#86EFAC",
-          attachment: "#FCD34D",
+          user: "hsl(var(--role-user))",
+          assistant: "hsl(var(--role-assistant))",
+          system: "hsl(var(--role-system))",
+          tool: "hsl(var(--role-tool))",
+          attachment: "hsl(var(--role-attachment))",
         },
       },
       fontFamily: {

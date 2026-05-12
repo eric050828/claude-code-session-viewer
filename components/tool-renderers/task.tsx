@@ -54,7 +54,7 @@ export const TaskRenderer: ToolRenderer = {
           {i.subagent_type && (
             <span>
               <span className="text-muted-foreground">subagent: </span>
-              <span className="text-purple-400">{i.subagent_type}</span>
+              <span className="text-purple-700 dark:text-purple-400">{i.subagent_type}</span>
             </span>
           )}
           {i.model && (
@@ -70,7 +70,7 @@ export const TaskRenderer: ToolRenderer = {
             </span>
           )}
           {i.run_in_background && (
-            <span className="text-amber-400">background</span>
+            <span className="text-amber-700 dark:text-amber-400">background</span>
           )}
         </div>
         {i.description && (

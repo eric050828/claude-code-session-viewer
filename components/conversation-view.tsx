@@ -356,7 +356,7 @@ export function ConversationView({
                 <span>· {session.toolUseCount} tool uses</span>
               )}
               {subagentByCwd.length > 0 && (
-                <span className="text-purple-400">
+                <span className="text-purple-700 dark:text-purple-400">
                   · {subagentByCwd.length} sub-agents
                 </span>
               )}

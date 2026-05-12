@@ -134,9 +134,9 @@ function DiffView({
                   className={[
                     "block px-3 py-px",
                     p.added
-                      ? "bg-emerald-500/15 text-emerald-300"
+                      ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
                       : p.removed
-                        ? "bg-red-500/15 text-red-300"
+                        ? "bg-red-500/15 text-red-800 dark:text-red-300"
                         : "text-muted-foreground/80",
                   ].join(" ")}
                 >

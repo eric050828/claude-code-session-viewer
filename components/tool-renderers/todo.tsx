@@ -25,7 +25,7 @@ export const TodoWriteRenderer: ToolRenderer = {
           <li key={idx} className="flex items-start gap-2">
             <span className="mt-0.5 shrink-0">
               {t.status === "completed" ? (
-                <CheckSquare className="h-3 w-3 text-emerald-400" />
+                <CheckSquare className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
               ) : t.status === "in_progress" ? (
                 <Loader2 className="h-3 w-3 animate-spin text-brand" />
               ) : (
