@@ -1,8 +1,9 @@
 "use client";
 
 import type { ToolRenderer } from "./index";
-import { truncate } from "@/lib/utils";
+import { parseBackgroundRef, truncate } from "@/lib/utils";
 import { CopyButton } from "../copy-button";
+import { BackgroundOutput } from "../background-output";
 
 export const BashRenderer: ToolRenderer = {
   summary(input) {
@@ -48,6 +49,7 @@ export const BashRenderer: ToolRenderer = {
   },
   resultView(result, isError) {
     const text = result || "";
+    const bg = parseBackgroundRef(text);
     return (
       <div className="group/cb relative">
         <pre
@@ -67,6 +69,7 @@ export const BashRenderer: ToolRenderer = {
             title="Copy output"
           />
         )}
+        {bg && <BackgroundOutput taskId={bg.taskId} path={bg.path} />}
       </div>
     );
   },

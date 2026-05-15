@@ -1,9 +1,10 @@
 "use client";
 
 import type { ToolRenderer, ToolStat } from "./index";
-import { formatDuration, formatTokens, truncate } from "@/lib/utils";
+import { formatDuration, formatTokens, parseBackgroundRef, truncate } from "@/lib/utils";
 import { Markdown } from "../markdown";
 import { CopyButton } from "../copy-button";
+import { BackgroundOutput } from "../background-output";
 
 export const TaskRenderer: ToolRenderer = {
   stats(_input, tur) {
@@ -92,7 +93,8 @@ export const TaskRenderer: ToolRenderer = {
     );
   },
   // Sub-agent final response is usually markdown — render it that way
-  // instead of the default <pre> dump.
+  // instead of the default <pre> dump. Background-mode invocations get a
+  // BackgroundOutput section so the actual log is visible inline.
   resultView(result, isError) {
     if (!result) {
       return (
@@ -101,11 +103,15 @@ export const TaskRenderer: ToolRenderer = {
         </div>
       );
     }
+    const bg = parseBackgroundRef(result);
     if (isError) {
       return (
-        <pre className="max-h-[500px] overflow-auto rounded bg-background p-3 font-mono text-[11px] leading-relaxed text-red-700 dark:text-red-300 whitespace-pre-wrap">
-          {result}
-        </pre>
+        <div>
+          <pre className="max-h-[500px] overflow-auto rounded bg-background p-3 font-mono text-[11px] leading-relaxed text-red-700 dark:text-red-300 whitespace-pre-wrap">
+            {result}
+          </pre>
+          {bg && <BackgroundOutput taskId={bg.taskId} path={bg.path} />}
+        </div>
       );
     }
     return (
@@ -118,6 +124,7 @@ export const TaskRenderer: ToolRenderer = {
           className="absolute right-2 top-2 bg-card/80 opacity-0 backdrop-blur transition-opacity group-hover/cb:opacity-100"
           title="Copy response"
         />
+        {bg && <BackgroundOutput taskId={bg.taskId} path={bg.path} />}
       </div>
     );
   },

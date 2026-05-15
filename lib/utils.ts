@@ -32,6 +32,29 @@ export function truncate(s: string, n: number): string {
   return s.slice(0, n) + "…";
 }
 
+/**
+ * Detect Claude Code's "background task started" tool_result text.
+ *
+ * The shape is something like:
+ *   Command running in background with ID: bt23chx3y. Output is being written to:
+ *   /tmp/claude-1016/-home-eric-lee/<session>/tasks/bt23chx3y.output
+ *
+ * Returns { taskId, path } if matched; null otherwise.
+ */
+export function parseBackgroundRef(
+  text: string,
+): { taskId: string; path: string } | null {
+  if (!text) return null;
+  // Anchor on the .output suffix so the trailing sentence separator (".") in
+  //   "...tasks/abc.output. You will be notified when it completes."
+  // doesn't get swallowed into the captured path.
+  const m = text.match(
+    /Command running in background with ID:\s*([^\s.]+)\.?\s+Output is being written to:\s*(\S+?\.output)\b/,
+  );
+  if (!m) return null;
+  return { taskId: m[1], path: m[2] };
+}
+
 export function formatTokens(n: number | undefined | null): string {
   if (!n || n < 0) return "0";
   if (n < 1000) return String(n);
