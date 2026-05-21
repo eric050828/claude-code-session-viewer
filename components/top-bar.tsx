@@ -35,7 +35,7 @@ export function TopBar({
         onClick={onOpenSearch}
         aria-label="Open global search (Ctrl/Cmd + K)"
         aria-keyshortcuts="Meta+K Control+K"
-        className="flex h-8 w-80 max-w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-xs text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground"
+        className="flex h-8 w-[40rem] max-w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-xs text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground"
       >
         <Search aria-hidden="true" className="h-3.5 w-3.5" />
         <span className="truncate">Search across all sessions…</span>
