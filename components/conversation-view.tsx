@@ -19,6 +19,7 @@ import { MessageBlock } from "./message-block";
 import { MetaEventBlock } from "./meta-event-block";
 import { TurnDuration } from "./turn-duration";
 import { ConversationMinimap } from "./conversation-minimap";
+import { SidebarToggleButton } from "./sidebar-toggle";
 import { Copyable } from "./copy-button";
 import { cn, cssEscape, formatTokens } from "@/lib/utils";
 import { RelativeTime } from "./relative-time";
@@ -156,6 +157,8 @@ export function ConversationView({
   onShowDetail,
   activeEventId,
   onActiveEventChange,
+  sidebarCollapsed,
+  onToggleSidebar,
 }: {
   project: ProjectMeta | null;
   session: SessionMeta | null;
@@ -165,6 +168,9 @@ export function ConversationView({
   onShowDetail: (d: DetailContent | null) => void;
   /** event uuid the URL currently points at; ConversationView scrolls to it */
   activeEventId?: string | null;
+  /** sidebar state — used to render the expand button when collapsed. */
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
   /** called when active user-msg changes.
    *  mode='replace' (default) for scroll tracking; 'push' for explicit
    *  user navigation (j/k) so the back button can step through messages. */
@@ -515,16 +521,22 @@ export function ConversationView({
 
   if (!session) {
     return (
-      <div
-        id="main"
-        className="flex h-full flex-col items-center justify-center text-muted-foreground"
-      >
-        <div className="text-sm">Select a session to view its conversation.</div>
-        {project && (
-          <div className="mt-2 font-mono text-xs" translate="no">
-            {project.decodedPath}
+      <div id="main" className="relative flex h-full flex-col">
+        {sidebarCollapsed && onToggleSidebar && (
+          <div className="absolute left-2 top-2">
+            <SidebarToggleButton collapsed onToggle={onToggleSidebar} />
           </div>
         )}
+        <div className="m-auto flex flex-col items-center text-muted-foreground">
+          <div className="text-sm">
+            Select a session to view its conversation.
+          </div>
+          {project && (
+            <div className="mt-2 font-mono text-xs" translate="no">
+              {project.decodedPath}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -534,6 +546,13 @@ export function ConversationView({
       {/* session header */}
       <div className="shrink-0 border-b border-border bg-card/60 px-5 py-3">
         <div className="flex items-start gap-3">
+          {sidebarCollapsed && onToggleSidebar && (
+            <SidebarToggleButton
+              collapsed
+              onToggle={onToggleSidebar}
+              className="-ml-1 mt-0.5"
+            />
+          )}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-semibold">
               {session.title}

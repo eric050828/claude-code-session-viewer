@@ -8,6 +8,7 @@ import { DetailPane } from "./detail-pane";
 import { TopBar } from "./top-bar";
 import { SearchDialog } from "./search-dialog";
 import { SettingsDialog } from "./settings-dialog";
+import { SidebarToggleButton } from "./sidebar-toggle";
 import type {
   ProjectMeta,
   SessionMeta,
@@ -296,8 +297,6 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
         onOpenSearch={openSearch}
         onOpenSettings={() => setSettingsOpen(true)}
         onReload={reloadProjects}
-        onToggleSidebar={toggleSidebar}
-        sidebarCollapsed={settings.sidebarCollapsed}
       />
       <div className="flex flex-1 overflow-hidden">
         <aside
@@ -307,6 +306,14 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
           )}
           aria-hidden={settings.sidebarCollapsed}
         >
+          {/* Sidebar header — holds the collapse button. Sits on top so
+             the toggle is visually anchored to the panel it controls. */}
+          <div className="flex h-8 shrink-0 items-center justify-end border-b border-border px-1.5">
+            <SidebarToggleButton
+              collapsed={settings.sidebarCollapsed}
+              onToggle={toggleSidebar}
+            />
+          </div>
           <div className="border-b border-border max-h-[40%] overflow-y-auto scrollbar-thin">
             <ProjectTree
               projects={projects}
@@ -338,6 +345,8 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
             onShowDetail={setDetail}
             activeEventId={activeEventId}
             onActiveEventChange={onActiveEventChange}
+            sidebarCollapsed={settings.sidebarCollapsed}
+            onToggleSidebar={toggleSidebar}
           />
         </main>
 
