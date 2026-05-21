@@ -60,8 +60,13 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
 
     const [cursor, setCursor] = useState(0);
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
+    // `wantShown` = user intent (focused / typing); actual visibility AND-s
+    // it with "we have something to show". Decoupling these is what keeps
+    // the dropdown from auto-opening on initial render before the user
+    // touches the input.
+    const [wantShown, setWantShown] = useState(false);
     const [activeSuggestion, setActiveSuggestion] = useState(0);
+    const showSuggestions = wantShown && suggestions.length > 0;
 
     const parsed = useMemo(() => parseQuery(value), [value]);
 
@@ -96,11 +101,13 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
       };
     }, [currentWord.text]);
 
-    // Fetch suggestions whenever lookup changes.
+    // Fetch suggestions whenever lookup changes. Does NOT touch `wantShown`
+    // — visibility is purely driven by focus + typing, not by the fetch
+    // completing. That way an unfocused input never spontaneously pops
+    // its dropdown on initial page load.
     useEffect(() => {
       if (!lookup) {
         setSuggestions([]);
-        setShowSuggestions(false);
         return;
       }
       let cancelled = false;
@@ -120,12 +127,9 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
               ),
           );
           setSuggestions(filtered);
-          setShowSuggestions(filtered.length > 0);
           setActiveSuggestion(0);
         })
-        .catch(() => {
-          if (!cancelled) setShowSuggestions(false);
-        });
+        .catch(() => {});
       return () => {
         cancelled = true;
       };
@@ -164,7 +168,9 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
           inputRef.current.setSelectionRange(newCursor, newCursor);
           setCursor(newCursor);
         });
-        setShowSuggestions(false);
+        // Closing after accept; if the lookup changes (next word), the
+        // onChange handler below re-opens via setWantShown(true).
+        setWantShown(false);
       },
       [lookup, currentWord, value, onChange],
     );
@@ -201,7 +207,7 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
         }
         if (e.key === "Escape") {
           e.preventDefault();
-          setShowSuggestions(false);
+          setWantShown(false);
           return;
         }
       }
@@ -250,6 +256,7 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
             onChange={(e) => {
               onChange(e.target.value);
               setCursor(e.target.selectionStart || 0);
+              setWantShown(true); // typing always re-opens the dropdown
             }}
             onSelect={(e) =>
               setCursor((e.target as HTMLInputElement).selectionStart || 0)
@@ -261,10 +268,8 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
               setCursor((e.target as HTMLInputElement).selectionStart || 0)
             }
             onKeyDown={handleKeyDown}
-            onFocus={() => {
-              if (suggestions.length > 0) setShowSuggestions(true);
-            }}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            onFocus={() => setWantShown(true)}
+            onBlur={() => setTimeout(() => setWantShown(false), 150)}
             placeholder={placeholder}
             aria-label="Search query"
             aria-autocomplete="list"
