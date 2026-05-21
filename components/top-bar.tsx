@@ -34,7 +34,7 @@ export function TopBar({
         <Search aria-hidden="true" className="h-3.5 w-3.5" />
         <span>Search across all sessions…</span>
         <kbd className="ml-auto rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-          {"⌘ K"}
+          {"⌘ K"}
         </kbd>
       </button>
       <div className="flex-1" />

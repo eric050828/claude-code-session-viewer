@@ -576,7 +576,7 @@ export function ConversationView({
       {/* find bar */}
       {findOpen && (
         <div className="shrink-0 border-b border-border bg-background px-4 py-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1 transition-shadow focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/40">
             <Search aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="search"

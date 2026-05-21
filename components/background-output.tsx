@@ -52,68 +52,71 @@ export function BackgroundOutput({
 
   return (
     <div className="mt-3 overflow-hidden rounded border border-border/40 bg-background">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 border-b border-border/40 bg-muted/20 px-3 py-1.5 text-left text-[10px] text-muted-foreground hover:bg-muted/30"
-      >
-        <Terminal aria-hidden="true" className="h-3 w-3" />
-        <span className="font-mono">background output</span>
-        <span className="font-mono opacity-70" translate="no">
-          {taskId}
-        </span>
-        {data?.size != null && (
-          <span className="opacity-60">{formatBytes(data.size)}</span>
-        )}
-        {data?.truncated && (
-          <span className="rounded bg-amber-500/15 px-1 text-amber-700 dark:text-amber-300">
-            truncated
+      {/* Header: toggle button sits next to action buttons (reload, copy),
+         not wrapping them — nesting interactive elements inside a <button>
+         is invalid HTML. */}
+      <div className="flex items-center gap-1 border-b border-border/40 bg-muted/20 pr-2 text-[10px] text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex flex-1 items-center gap-2 px-3 py-1.5 text-left hover:bg-muted/30 focus-visible:bg-muted/30"
+        >
+          <Terminal aria-hidden="true" className="h-3 w-3" />
+          <span className="font-mono">background output</span>
+          <span className="font-mono opacity-70" translate="no">
+            {taskId}
           </span>
-        )}
-        {data?.mtime && (
-          <span className="opacity-60">· {formatRelative(data.mtime)}</span>
-        )}
-        {data?.exists === false && (
-          <span className="text-muted-foreground/70">· file gone</span>
-        )}
-        <span className="ml-auto flex items-center gap-1">
-          {loading && <Loader2 aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />}
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              load();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                e.stopPropagation();
-                load();
-              }
-            }}
-            className="cursor-pointer rounded p-1 hover:bg-muted hover:text-foreground"
-            title="Reload"
-            aria-label="Reload background output"
-          >
-            <RotateCw aria-hidden="true" className="h-3 w-3" />
-          </span>
-          {data?.content && (
-            <CopyButton text={data.content} className="opacity-70" />
+          {data?.size != null && (
+            <span className="tabular-nums opacity-60">{formatBytes(data.size)}</span>
           )}
-        </span>
-      </button>
+          {data?.truncated && (
+            <span className="rounded bg-amber-500/15 px-1 text-amber-700 dark:text-amber-300">
+              truncated
+            </span>
+          )}
+          {data?.mtime && (
+            <span className="opacity-60">·&nbsp;{formatRelative(data.mtime)}</span>
+          )}
+          {data?.exists === false && (
+            <span className="text-muted-foreground/70">·&nbsp;file gone</span>
+          )}
+        </button>
+        {loading && (
+          <Loader2
+            aria-hidden="true"
+            className="h-3 w-3 shrink-0 motion-safe:animate-spin"
+          />
+        )}
+        <button
+          type="button"
+          onClick={load}
+          title="Reload"
+          aria-label="Reload background output"
+          className="rounded p-1 hover:bg-muted hover:text-foreground"
+        >
+          <RotateCw aria-hidden="true" className="h-3 w-3" />
+        </button>
+        {data?.content && (
+          <CopyButton text={data.content} className="opacity-70" />
+        )}
+      </div>
       {open && (
-        <div className="max-h-[500px] overflow-auto">
+        <div className="max-h-[500px] overflow-auto overscroll-contain">
           {loading && !data && (
-            <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
+            <div
+              aria-live="polite"
+              className="flex items-center gap-2 p-3 text-xs text-muted-foreground"
+            >
               <Loader2 aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />
               Loading…
             </div>
           )}
           {data?.error && (
-            <div className="flex items-start gap-2 p-3 text-xs text-muted-foreground">
+            <div
+              role="alert"
+              className="flex items-start gap-2 p-3 text-xs text-muted-foreground"
+            >
               <AlertCircle aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 text-amber-700 dark:text-amber-300" />
               <div>
                 <div>{data.error}</div>

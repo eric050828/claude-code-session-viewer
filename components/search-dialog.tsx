@@ -212,14 +212,24 @@ export function SearchDialog({
               {hits.map((h, i) => {
                 const Icon = ICONS[h.matchType] || FileText;
                 const project = projectMap.get(h.projectId);
+                const href =
+                  `?p=${encodeURIComponent(h.projectId)}&s=${encodeURIComponent(h.sessionId)}` +
+                  (h.eventUuid ? `&e=${encodeURIComponent(h.eventUuid)}` : "");
                 return (
                   <li key={i} role="option" aria-selected={i === active}>
-                    <button
-                      type="button"
+                    <a
+                      href={href}
                       onMouseEnter={() => setActive(i)}
-                      onClick={() => onHit(h)}
+                      onClick={(e) => {
+                        // Modified clicks fall through so Cmd/middle-click
+                        // opens the target session in a new tab.
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)
+                          return;
+                        e.preventDefault();
+                        onHit(h);
+                      }}
                       className={cn(
-                        "flex w-full min-w-0 flex-col gap-1 border-l-2 px-4 py-2.5 text-left transition-colors",
+                        "flex w-full min-w-0 flex-col gap-1 border-l-2 px-4 py-2.5 text-left no-underline text-inherit transition-colors",
                         i === active
                           ? "border-brand bg-brand/5"
                           : "border-transparent hover:bg-muted/40",
@@ -252,7 +262,7 @@ export function SearchDialog({
                       <div className="text-xs leading-relaxed text-foreground/90">
                         <Highlighted text={h.excerpt} query={freeText} />
                       </div>
-                    </button>
+                    </a>
                   </li>
                 );
               })}
@@ -260,11 +270,19 @@ export function SearchDialog({
           </div>
 
           <div className="flex items-center gap-3 border-t border-border bg-muted/30 px-4 py-2 text-[10px] text-muted-foreground">
-            <span><kbd className="font-mono">↑↓</kbd> navigate</span>
-            <span><kbd className="font-mono">↵</kbd> open</span>
-            <span><kbd className="font-mono">Tab</kbd> complete</span>
-            <span><kbd className="font-mono">Esc</kbd> close</span>
-            <span className="ml-auto">{hits.length} results</span>
+            <span className="whitespace-nowrap">
+              <kbd className="font-mono">↑↓</kbd>&nbsp;navigate
+            </span>
+            <span className="whitespace-nowrap">
+              <kbd className="font-mono">↵</kbd>&nbsp;open
+            </span>
+            <span className="whitespace-nowrap">
+              <kbd className="font-mono">Tab</kbd>&nbsp;complete
+            </span>
+            <span className="whitespace-nowrap">
+              <kbd className="font-mono">Esc</kbd>&nbsp;close
+            </span>
+            <span className="ml-auto tabular-nums">{hits.length} results</span>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

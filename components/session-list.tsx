@@ -70,14 +70,23 @@ export function SessionList({
       <ul className="flex-1 overflow-y-auto scrollbar-thin">
         {filtered.map((s) => {
           const active = s.id === activeId;
+          const href = `?p=${encodeURIComponent(project.id)}&s=${encodeURIComponent(s.id)}`;
           return (
             <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(s.id)}
+              <a
+                href={href}
+                onClick={(e) => {
+                  // Let the browser handle modified clicks (new tab / window)
+                  // so users can compare sessions side by side. Plain click
+                  // stays SPA-fast via the onSelect callback.
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)
+                    return;
+                  e.preventDefault();
+                  onSelect(s.id);
+                }}
                 aria-current={active ? "true" : undefined}
                 className={cn(
-                  "group flex w-full min-w-0 flex-col gap-1 border-l-2 px-3 py-2.5 text-left transition-colors",
+                  "group flex w-full min-w-0 flex-col gap-1 border-l-2 px-3 py-2.5 text-left transition-colors no-underline text-inherit",
                   active
                     ? "border-brand bg-brand/5"
                     : "border-transparent hover:bg-muted/40",
@@ -145,7 +154,7 @@ export function SessionList({
                 >
                   {s.id.slice(0, 8)}
                 </div>
-              </button>
+              </a>
             </li>
           );
         })}

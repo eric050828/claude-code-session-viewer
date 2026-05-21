@@ -244,7 +244,7 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
         {/* Input row */}
         <div
           className={cn(
-            "flex items-center gap-2 rounded-md border border-border bg-background",
+            "flex items-center gap-2 rounded-md border border-border bg-background transition-shadow focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/40",
             sizing,
           )}
         >

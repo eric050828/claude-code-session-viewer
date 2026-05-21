@@ -61,7 +61,7 @@ export function SettingsDialog({
             settings persist to local storage.
           </Dialog.Description>
 
-          <div className="max-h-[70vh] overflow-y-auto px-4 py-3 scrollbar-thin">
+          <div className="max-h-[70vh] overflow-y-auto overscroll-contain px-4 py-3 scrollbar-thin">
             <Section title="Theme">
               <Segmented
                 value={settings.theme}
@@ -197,16 +197,21 @@ function Toggle({
         aria-label={label}
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative h-5 w-9 shrink-0 rounded-full border transition-colors",
+          "relative h-5 w-9 shrink-0 rounded-full border p-0 align-middle transition-colors",
           checked
             ? "border-brand/60 bg-brand"
             : "border-border bg-muted",
         )}
       >
+        {/* Track inner area is 18×34 (h-5 w-9 minus 1px border × 2 with
+           box-sizing: border-box). Knob is 16×16; explicit left-0 + top-px
+           anchor the static position so the slide is driven entirely by
+           translate-x. 18px horizontal slack → 1px when off, 17px when on. */}
         <span
+          aria-hidden="true"
           className={cn(
-            "absolute top-0.5 h-4 w-4 rounded-full bg-card shadow transition-transform",
-            checked ? "translate-x-[18px]" : "translate-x-0.5",
+            "absolute left-0 top-px h-4 w-4 rounded-full bg-card shadow transition-transform motion-reduce:transition-none",
+            checked ? "translate-x-[17px]" : "translate-x-px",
           )}
         />
       </button>
