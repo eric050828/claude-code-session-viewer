@@ -1,18 +1,20 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import {
+  SHORTCUT_DEFAULTS,
+  type ShortcutAction,
+} from "./keyboard";
 
 // User-tunable preferences. Persisted to localStorage as a single JSON
 // blob; subscribed via useSettings() across the app.
 
 export type ThemeMode = "light" | "dark" | "system";
-export type JKDirection = "j-up" | "j-down";
 
 export interface Settings {
   theme: ThemeMode;
-  /** "j-up" = j prev / k next (positional, default).
-   *  "j-down" = j next / k prev (vim-style). */
-  jkDirection: JKDirection;
+  /** action → combo string. Missing keys fall back to SHORTCUT_DEFAULTS. */
+  shortcuts: Partial<Record<ShortcutAction, string>>;
   showMinimap: boolean;
   expandThinking: boolean;
   liveUpdates: boolean;
@@ -23,12 +25,20 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
-  jkDirection: "j-up",
+  shortcuts: {},
   showMinimap: true,
   expandThinking: false,
   liveUpdates: true,
   autoScrollBottom: true,
 };
+
+/** Resolve the active combo for an action (user override or default). */
+export function getShortcut(
+  settings: Settings,
+  action: ShortcutAction,
+): string {
+  return settings.shortcuts[action] || SHORTCUT_DEFAULTS[action];
+}
 
 const STORAGE_KEY = "ccsv:settings";
 const LEGACY_THEME_KEY = "ccsv:theme";

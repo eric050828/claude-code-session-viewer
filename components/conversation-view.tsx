@@ -22,7 +22,8 @@ import { ConversationMinimap } from "./conversation-minimap";
 import { Copyable } from "./copy-button";
 import { cn, formatTokens } from "@/lib/utils";
 import { RelativeTime } from "./relative-time";
-import { useSettings } from "@/lib/settings";
+import { getShortcut, useSettings } from "@/lib/settings";
+import { isInEditable, matchShortcut } from "@/lib/keyboard";
 import type { DetailContent } from "./app-shell";
 
 // Build pairing map: tool_use_id → { toolUse, toolResult, attachments[], toolUseResult }
@@ -311,33 +312,28 @@ export function ConversationView({
     };
   }, [messagesEl, userMsgUuids, onActiveEventChange]);
 
-  // j / k — jump to next / previous user message. Skips when focus is in
-  // an editable element so users can still type those letters into
-  // inputs.
+  // Prev / next user message — bound to the user's configured shortcuts.
+  // Each direction can be any combo (bare letter, modified, named key).
+  // Skips bare-key combos when focus is in an editable element so the
+  // user can still type those letters into the search/find inputs.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key !== "j" && e.key !== "k") return;
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      )
-        return;
+      const prevCombo = getShortcut(settings, "nav.prev");
+      const nextCombo = getShortcut(settings, "nav.next");
+      const isPrev = matchShortcut(prevCombo, e);
+      const isNext = matchShortcut(nextCombo, e);
+      if (!isPrev && !isNext) return;
+      // Gate bare-key combos in inputs (a bare key is one with no Mod/Alt
+      // — we infer that from the event itself).
+      const bare = !(e.metaKey || e.ctrlKey || e.altKey);
+      if (bare && isInEditable(e)) return;
       if (!userMsgUuids.length) return;
       e.preventDefault();
       const current = lastUrlAppliedRef.current;
       const idx = current ? userMsgUuids.indexOf(current) : -1;
-      // Direction follows the user's setting.
-      // "j-up"   → j prev (−), k next (+)
-      // "j-down" → j next (+), k prev (−) (vim convention)
-      const downKey = settings.jkDirection === "j-up" ? "k" : "j";
-      const direction = e.key === downKey ? +1 : -1;
+      const direction = isNext ? +1 : -1;
       let target_idx: number;
       if (idx < 0) {
-        // No active selection yet — j jumps to last, k to first
         target_idx = direction > 0 ? 0 : userMsgUuids.length - 1;
       } else {
         target_idx = Math.max(
@@ -354,12 +350,12 @@ export function ConversationView({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [userMsgUuids, scrollToEventEl, onActiveEventChange, settings.jkDirection]);
+  }, [userMsgUuids, scrollToEventEl, onActiveEventChange, settings.shortcuts]);
 
-  // ⌘F handler
+  // Find-in-session handler — bound to the configured shortcut.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+      if (matchShortcut(getShortcut(settings, "find.open"), e)) {
         e.preventDefault();
         setFindOpen(true);
       }
@@ -370,7 +366,8 @@ export function ConversationView({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [findOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [findOpen, settings.shortcuts]);
 
   // Recompute matches when query changes
   useEffect(() => {

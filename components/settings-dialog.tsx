@@ -1,17 +1,26 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Monitor, Moon, RotateCcw, Sun, X } from "lucide-react";
 import {
   DEFAULT_SETTINGS,
-  type JKDirection,
   type Settings,
   type ThemeMode,
   applyThemeToDocument,
+  getShortcut,
   resetSettings,
   updateSettings,
   useSettings,
 } from "@/lib/settings";
+import {
+  ALL_ACTIONS,
+  SHORTCUT_DEFAULTS,
+  SHORTCUT_META,
+  captureCombo,
+  formatCombo,
+  type ShortcutAction,
+} from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 
 export function SettingsDialog({
@@ -65,20 +74,12 @@ export function SettingsDialog({
               />
             </Section>
 
-            <Section title="Navigation">
-              <Row
-                label="j / k direction"
-                hint="Which way these keys jump through user messages."
-              >
-                <Segmented<JKDirection>
-                  value={settings.jkDirection}
-                  onChange={(jkDirection) => updateSettings({ jkDirection })}
-                  options={[
-                    { value: "j-up", label: "j ↑ / k ↓" },
-                    { value: "j-down", label: "j ↓ / k ↑" },
-                  ]}
-                />
-              </Row>
+            <Section title="Keyboard shortcuts">
+              <div className="space-y-1">
+                {ALL_ACTIONS.map((action) => (
+                  <ShortcutRow key={action} action={action} settings={settings} />
+                ))}
+              </div>
             </Section>
 
             <Section title="Display">
@@ -210,6 +211,120 @@ function Toggle({
         />
       </button>
     </Row>
+  );
+}
+
+function ShortcutRow({
+  action,
+  settings,
+}: {
+  action: ShortcutAction;
+  settings: Settings;
+}) {
+  const meta = SHORTCUT_META[action];
+  const current = getShortcut(settings, action);
+  const isDefault = current === SHORTCUT_DEFAULTS[action];
+  const [editing, setEditing] = useState(false);
+  const [captured, setCaptured] = useState<string | null>(null);
+  const captureRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!editing) return;
+    captureRef.current?.focus();
+  }, [editing]);
+
+  const save = (combo: string) => {
+    updateSettings({
+      shortcuts: { ...settings.shortcuts, [action]: combo },
+    });
+    setEditing(false);
+    setCaptured(null);
+  };
+
+  const reset = () => {
+    const next = { ...settings.shortcuts };
+    delete next[action];
+    updateSettings({ shortcuts: next });
+    setEditing(false);
+    setCaptured(null);
+  };
+
+  return (
+    <div className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/30">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium">{meta.name}</div>
+        <div className="mt-0.5 text-[10px] text-muted-foreground">
+          {meta.hint}
+        </div>
+      </div>
+      {editing ? (
+        <>
+          <button
+            ref={captureRef}
+            type="button"
+            onKeyDown={(e) => {
+              e.preventDefault();
+              const combo = captureCombo(e.nativeEvent);
+              if (combo) setCaptured(combo);
+            }}
+            onBlur={() => {
+              if (!captured) setEditing(false);
+            }}
+            className="flex h-6 min-w-[90px] items-center justify-center rounded border border-brand bg-brand/10 px-2 font-mono text-[11px] text-brand outline-none"
+          >
+            {captured ? formatCombo(captured) : "Press any key…"}
+          </button>
+          {captured && (
+            <button
+              type="button"
+              onClick={() => save(captured)}
+              className="rounded bg-brand px-2 py-0.5 text-[10px] font-medium text-brand-foreground hover:opacity-90"
+            >
+              Save
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(false);
+              setCaptured(null);
+            }}
+            className="rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+        </>
+      ) : (
+        <>
+          <kbd
+            className={cn(
+              "min-w-[60px] rounded border border-border bg-muted px-2 py-0.5 text-center font-mono text-[11px]",
+              !isDefault && "border-brand/40 bg-brand/10 text-brand",
+            )}
+          >
+            {formatCombo(current)}
+          </kbd>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            Edit
+          </button>
+          {!isDefault && (
+            <button
+              type="button"
+              onClick={reset}
+              title="Reset to default"
+              aria-label={`Reset ${meta.name} shortcut`}
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw aria-hidden="true" className="h-3 w-3" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

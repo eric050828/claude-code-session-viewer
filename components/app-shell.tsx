@@ -16,7 +16,8 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { readUrl, writeUrl } from "@/lib/url-state";
-import { useSettings } from "@/lib/settings";
+import { getShortcut, useSettings } from "@/lib/settings";
+import { matchShortcut } from "@/lib/keyboard";
 
 export interface DetailContent {
   kind: "tool" | "subagent";
@@ -128,16 +129,18 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     return () => es.close();
   }, [activeProjectId, activeSessionId, settings.liveUpdates]);
 
-  // global keyboard shortcuts
+  // global keyboard shortcuts — bindings come from settings
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if (matchShortcut(getShortcut(settings, "search.open"), e)) {
         e.preventDefault();
         openSearch();
+        return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+      if (matchShortcut(getShortcut(settings, "settings.open"), e)) {
         e.preventDefault();
         setSettingsOpen(true);
+        return;
       }
       if (e.key === "Escape" && detail) {
         setDetail(null);
@@ -146,7 +149,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail]);
+  }, [detail, settings.shortcuts]);
 
   // Browser back/forward — re-read URL and apply.
   useEffect(() => {
