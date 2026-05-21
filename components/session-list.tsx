@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { GitBranch, MessageSquare, Wrench, Users } from "lucide-react";
 import type { ProjectMeta, SessionMeta } from "@/lib/types";
 import { cn, formatBytes, truncate } from "@/lib/utils";
 import { RelativeTime } from "./relative-time";
+import { QueryInput } from "./query-input";
+import { parseQuery, resolveDate, type Token } from "@/lib/query-parser";
 
 export function SessionList({
   project,
@@ -20,13 +22,12 @@ export function SessionList({
   onSelect: (id: string) => void;
 }) {
   const [filter, setFilter] = useState("");
-  const filtered = filter
-    ? sessions.filter(
-        (s) =>
-          s.title.toLowerCase().includes(filter.toLowerCase()) ||
-          s.id.toLowerCase().includes(filter.toLowerCase()),
-      )
-    : sessions;
+  const filtered = useMemo(() => {
+    if (!filter.trim()) return sessions;
+    const parsed = parseQuery(filter);
+    const freeLower = parsed.freeText.toLowerCase();
+    return sessions.filter((s) => filterSession(s, parsed.filters, freeLower));
+  }, [sessions, filter]);
 
   if (!project) {
     return (
@@ -50,15 +51,12 @@ export function SessionList({
             Sessions ({filtered.length})
           </h2>
         </div>
-        <input
-          type="search"
+        <QueryInput
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter sessions…"
-          aria-label="Filter sessions by title or ID"
-          autoComplete="off"
-          spellCheck={false}
-          className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs transition-colors focus-visible:border-brand/50"
+          onChange={setFilter}
+          placeholder="Filter… id: tool: branch: has:"
+          compact
+          hideOperators={["project"]}
         />
       </div>
       {loading && (
@@ -154,4 +152,70 @@ export function SessionList({
       </ul>
     </section>
   );
+}
+
+/**
+ * Match a single SessionMeta against the parsed token filters + free text.
+ * Mirrors the server-side index filter, but works on what the sidebar
+ * already has in memory — no extra HTTP. Token semantics match the spec at
+ * docs/superpowers/specs/2026-05-15-token-search-design.md.
+ */
+function filterSession(
+  s: SessionMeta,
+  filters: Token[],
+  freeLower: string,
+): boolean {
+  for (const t of filters) {
+    if (t.unknown || t.error) continue; // ignore; treated as free text
+    const v = t.value.toLowerCase();
+    let match: boolean;
+    switch (t.key) {
+      case "id":
+        match = s.id.toLowerCase().startsWith(v);
+        break;
+      case "project":
+        // sidebar already scoped; ignore
+        match = true;
+        break;
+      case "branch":
+        match = (s.gitBranch || "").toLowerCase().includes(v);
+        break;
+      case "tool":
+        // SessionMeta has toolUseCount but not the names. Best-effort:
+        // pass through always; server-side global search has the real set.
+        match = true;
+        break;
+      case "model":
+        match = true; // same as tool
+        break;
+      case "has":
+        if (t.value === "subagents") match = s.hasSubagents;
+        else if (t.value === "active") match = s.isActive;
+        else match = true; // thinking/errors not exposed in SessionMeta
+        break;
+      case "after": {
+        const d = t.resolved || resolveDate(t.value);
+        const last = s.lastTimestamp ? Date.parse(s.lastTimestamp) : 0;
+        match = d ? last >= d.getTime() : true;
+        break;
+      }
+      case "before": {
+        const d = t.resolved || resolveDate(t.value);
+        const last = s.lastTimestamp ? Date.parse(s.lastTimestamp) : 0;
+        match = d ? last < d.getTime() : true;
+        break;
+      }
+      default:
+        match = true;
+    }
+    if (t.negate ? match : !match) return false;
+  }
+  if (freeLower) {
+    return (
+      s.title.toLowerCase().includes(freeLower) ||
+      s.id.toLowerCase().includes(freeLower) ||
+      (s.gitBranch || "").toLowerCase().includes(freeLower)
+    );
+  }
+  return true;
 }

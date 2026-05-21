@@ -208,4 +208,16 @@ export interface SearchHit {
   excerpt: string;
   matchType: "text" | "tool_input" | "tool_result" | "thinking" | "title";
   score: number;
+  /**
+   * How this hit was selected — "filter" when only token filters narrowed
+   * the candidates (no free-text needle), or the matching field otherwise.
+   * UI surfaces this so the user understands why a session showed up.
+   */
+  via?: "filter" | "text" | "thinking" | "tool_input" | "tool_result" | "title";
+}
+
+export interface DistinctValues {
+  tools: Array<{ name: string; count: number }>;
+  branches: string[];
+  models: string[];
 }

@@ -1,18 +1,20 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain,
+  Filter,
   FileText,
   Hash,
   Loader2,
   MessageSquare,
-  Search,
   Wrench,
 } from "lucide-react";
 import type { ProjectMeta, SearchHit } from "@/lib/types";
-import { cn, formatRelative } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { QueryInput, type QueryInputHandle } from "./query-input";
+import { parseQuery } from "@/lib/query-parser";
 
 const ICONS: Record<SearchHit["matchType"], React.ComponentType<{ className?: string }>> = {
   text: MessageSquare,
@@ -21,6 +23,14 @@ const ICONS: Record<SearchHit["matchType"], React.ComponentType<{ className?: st
   tool_result: Wrench,
   title: Hash,
 };
+
+const EXAMPLES = [
+  "id:fb44f1ef",
+  "tool:Bash signature",
+  "branch:main has:subagents",
+  "after:7d type:thinking",
+  "-tool:Read compaction",
+];
 
 export function SearchDialog({
   open,
@@ -37,8 +47,13 @@ export function SearchDialog({
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const projectMap = new Map(projects.map((p) => [p.id, p]));
+  const inputRef = useRef<QueryInputHandle>(null);
+  const projectMap = useMemo(
+    () => new Map(projects.map((p) => [p.id, p])),
+    [projects],
+  );
+  const parsed = useMemo(() => parseQuery(q), [q]);
+  const freeText = parsed.freeText;
 
   useEffect(() => {
     if (!open) {
@@ -70,61 +85,93 @@ export function SearchDialog({
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }, 220);
+    }, 180);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
   }, [q]);
 
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActive((a) => Math.min(a + 1, hits.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActive((a) => Math.max(a - 1, 0));
-    } else if (e.key === "Enter" && hits[active]) {
-      onHit(hits[active]);
-    }
-  };
+  // Result-list keyboard nav lives at the dialog level so it works even
+  // when focus is inside QueryInput's autocomplete (which intercepts arrow
+  // keys only when its own dropdown is showing).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      // QueryInput will have already consumed ArrowUp/Down if its dropdown
+      // is open; here we just handle result-list nav.
+      const isDropdownOpen = !!document.querySelector(
+        '[role="listbox"][aria-label="Search suggestions"]',
+      );
+      if (isDropdownOpen) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActive((a) => Math.min(a + 1, hits.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActive((a) => Math.max(a - 1, 0));
+      } else if (e.key === "Enter" && hits[active]) {
+        onHit(hits[active]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, hits, active, onHit]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 motion-safe:animate-fade-in" />
-        <Dialog.Content className="fixed left-1/2 top-[20%] z-50 w-[640px] -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-card shadow-2xl motion-safe:animate-fade-in">
+        <Dialog.Content className="fixed left-1/2 top-[15%] z-50 w-[720px] max-w-[calc(100%-2rem)] -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-card shadow-2xl motion-safe:animate-fade-in">
           <Dialog.Title className="sr-only">Search sessions</Dialog.Title>
           <Dialog.Description className="sr-only">
             Type a query to search across all projects and sessions. Use the
-            arrow keys to navigate results and Enter to open.
+            arrow keys to navigate results and Enter to open. Use operators
+            like id:, tool:, branch:, has:, before:, after: to filter.
           </Dialog.Description>
-          <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-            <Search aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-            <input
-              ref={inputRef}
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={onKey}
-              placeholder="Search across all sessions…"
-              aria-label="Search across all sessions"
-              aria-controls="search-results"
-              autoComplete="off"
-              spellCheck={false}
-              autoCorrect="off"
-              className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
-            />
-            {loading && (
-              <Loader2
-                aria-label="Searching"
-                className="h-3.5 w-3.5 text-muted-foreground motion-safe:animate-spin"
-              />
+
+          <div className="border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <QueryInput
+                  ref={inputRef}
+                  value={q}
+                  onChange={setQ}
+                  placeholder="Search… try id:abc12345 or tool:Bash"
+                  ariaResultsId="search-results"
+                />
+              </div>
+              {loading && (
+                <Loader2
+                  aria-label="Searching"
+                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground motion-safe:animate-spin"
+                />
+              )}
+              <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                Esc
+              </kbd>
+            </div>
+            {!q.trim() && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                <Filter aria-hidden="true" className="h-3 w-3" />
+                <span>Try:</span>
+                {EXAMPLES.map((ex) => (
+                  <button
+                    key={ex}
+                    type="button"
+                    onClick={() => {
+                      setQ(ex);
+                      requestAnimationFrame(() => inputRef.current?.focus());
+                    }}
+                    className="rounded bg-muted/50 px-1.5 py-0.5 font-mono hover:bg-muted hover:text-foreground"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
             )}
-            <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              Esc
-            </kbd>
           </div>
+
           <div
             className="max-h-[480px] overflow-y-auto overscroll-contain scrollbar-thin"
             id="search-results"
@@ -139,7 +186,16 @@ export function SearchDialog({
             )}
             {q.trim() && !loading && hits.length === 0 && (
               <div className="p-6 text-center text-xs text-muted-foreground">
-                No matches.
+                <div>No matches.</div>
+                {parsed.filters.length > 0 && (
+                  <div className="mt-2 text-[10px] text-muted-foreground/70">
+                    Try removing a filter — e.g.{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono">
+                      {parsed.filters[parsed.filters.length - 1].key}:
+                      {parsed.filters[parsed.filters.length - 1].value}
+                    </code>
+                  </div>
+                )}
               </div>
             )}
             <span aria-live="polite" className="sr-only">
@@ -169,11 +225,16 @@ export function SearchDialog({
                         <span className="font-mono uppercase">
                           {h.matchType.replace("_", " ")}
                         </span>
+                        {h.via === "filter" && (
+                          <span
+                            className="rounded bg-brand/15 px-1 py-px font-mono text-[9px] text-brand"
+                            title="Matched by token filter"
+                          >
+                            filter
+                          </span>
+                        )}
                         <span aria-hidden="true">·</span>
-                        <span
-                          className="truncate font-mono"
-                          translate="no"
-                        >
+                        <span className="truncate font-mono" translate="no">
                           {project?.decodedPath || h.projectId}
                         </span>
                         <span
@@ -184,7 +245,7 @@ export function SearchDialog({
                         </span>
                       </div>
                       <div className="text-xs leading-relaxed text-foreground/90">
-                        <Highlighted text={h.excerpt} query={q} />
+                        <Highlighted text={h.excerpt} query={freeText} />
                       </div>
                     </button>
                   </li>
@@ -192,9 +253,11 @@ export function SearchDialog({
               })}
             </ul>
           </div>
+
           <div className="flex items-center gap-3 border-t border-border bg-muted/30 px-4 py-2 text-[10px] text-muted-foreground">
             <span><kbd className="font-mono">↑↓</kbd> navigate</span>
             <span><kbd className="font-mono">↵</kbd> open</span>
+            <span><kbd className="font-mono">Tab</kbd> complete</span>
             <span><kbd className="font-mono">Esc</kbd> close</span>
             <span className="ml-auto">{hits.length} results</span>
           </div>
@@ -230,6 +293,3 @@ function Highlighted({ text, query }: { text: string; query: string }) {
   }
   return <>{out}</>;
 }
-
-// keep import non-empty
-export const _formatRelative = formatRelative;
