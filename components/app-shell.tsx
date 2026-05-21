@@ -201,26 +201,29 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
-  // Scroll-tracked active event — debounced replaceState so the URL
-  // updates as the user scrolls without writing on every frame and
-  // without polluting history (you don't want one back-press per
-  // pixel scrolled).
+  // Active event sync. Two modes:
+  //   replace — passive scroll tracking (debounced, doesn't pollute history)
+  //   push    — explicit nav (j/k, minimap click); creates a back-step so
+  //             the back button returns to the message you came from
   const onActiveEventChange = useCallback(
-    (uuid: string | null) => {
+    (uuid: string | null, mode: "replace" | "push" = "replace") => {
       if (popInFlight.current) return;
       setActiveEventId(uuid);
       if (eventUrlTimerRef.current) clearTimeout(eventUrlTimerRef.current);
-      eventUrlTimerRef.current = setTimeout(() => {
-        writeUrl(
-          {
-            p: activeProjectId || undefined,
-            s: activeSessionId || undefined,
-            q: searchOpen ? searchQuery : undefined,
-            e: uuid || undefined,
-          },
-          "replace",
-        );
-      }, 250);
+      const next = {
+        p: activeProjectId || undefined,
+        s: activeSessionId || undefined,
+        q: searchOpen ? searchQuery : undefined,
+        e: uuid || undefined,
+      };
+      if (mode === "push") {
+        // Cancel any pending replace so it can't overwrite our push.
+        writeUrl(next, "push");
+      } else {
+        eventUrlTimerRef.current = setTimeout(() => {
+          writeUrl(next, "replace");
+        }, 250);
+      }
     },
     [activeProjectId, activeSessionId, searchOpen, searchQuery],
   );

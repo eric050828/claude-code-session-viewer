@@ -159,8 +159,13 @@ export function ConversationView({
   onShowDetail: (d: DetailContent | null) => void;
   /** event uuid the URL currently points at; ConversationView scrolls to it */
   activeEventId?: string | null;
-  /** called when scroll changes which user-msg is at the top */
-  onActiveEventChange?: (uuid: string | null) => void;
+  /** called when active user-msg changes.
+   *  mode='replace' (default) for scroll tracking; 'push' for explicit
+   *  user navigation (j/k) so the back button can step through messages. */
+  onActiveEventChange?: (
+    uuid: string | null,
+    mode?: "replace" | "push",
+  ) => void;
 }) {
   const settings = useSettings();
   const toolMap = useMemo(() => buildToolMap(events), [events]);
@@ -270,43 +275,93 @@ export function ConversationView({
     }
   }, [activeEventId, scrollToEventEl]);
 
-  // Track which user message is at the top of the viewport and call up to
-  // AppShell so it can mirror it to the URL. Uses rAF to keep cost minimal
-  // while scrolling.
+  // Track which user message is at the top of the viewport.
+  //
+  // Earlier attempts:
+  //   (a) per-scroll getBoundingClientRect on every msg → O(N) layout
+  //       reads per frame, kills perf on 1000+ msg sessions.
+  //   (b) IntersectionObserver — efficient, but the callback only fires
+  //       on threshold crossings. An element that scrolls from "below
+  //       view" to "above view" without ever intersecting the root
+  //       (fast jump, e.g. scroll-to-bottom) emits no event, so the
+  //       set of "messages above the anchor" goes stale.
+  //
+  // Current approach: cache offsetTop once per layout, then on scroll
+  // do a binary search for the last msg with offsetTop ≤ scrollTop+100.
+  // O(log N) per scroll, no layout reads inside the hot path.
   useEffect(() => {
     if (!messagesEl) return;
     if (!onActiveEventChange) return;
-    let raf: number | null = null;
-    const compute = () => {
-      raf = null;
-      // Find the last user-message uuid whose top edge has crossed our
-      // anchor line (100px below the scroller's top).
-      const scrollerTop = messagesEl.getBoundingClientRect().top;
-      const anchor = scrollerTop + 100;
-      let candidate: string | null = null;
-      for (const uuid of userMsgUuids) {
+    if (!userMsgUuids.length) return;
+
+    // Snapshot positions. offsetTop is read once per dependency change.
+    // ResizeObserver below invalidates the snapshot when content reflows.
+    let positions: number[] = [];
+    let needsRefresh = true;
+    const refreshPositions = () => {
+      positions = userMsgUuids.map((uuid) => {
         const el = messagesEl.querySelector(
           `[data-event-uuid="${uuid}"]`,
         ) as HTMLElement | null;
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        if (rect.top <= anchor) candidate = uuid;
-        else break;
-      }
-      // Skip the update if we just programmatically scrolled to this id
-      // (avoid bouncing the URL between two adjacent uuids).
-      lastUrlAppliedRef.current = candidate;
-      onActiveEventChange(candidate);
+        return el ? el.offsetTop : Number.MAX_SAFE_INTEGER;
+      });
+      needsRefresh = false;
     };
+
+    const ANCHOR_OFFSET = 100;
+
+    let raf: number | null = null;
+    const computeActive = () => {
+      raf = null;
+      if (needsRefresh) refreshPositions();
+      const scrollTop = messagesEl.scrollTop;
+      const anchor = scrollTop + ANCHOR_OFFSET;
+      // Binary search for the last position <= anchor.
+      let lo = 0;
+      let hi = positions.length - 1;
+      let found = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (positions[mid] <= anchor) {
+          found = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      const active = found >= 0 ? userMsgUuids[found] : null;
+      if (active !== lastUrlAppliedRef.current) {
+        lastUrlAppliedRef.current = active;
+        onActiveEventChange(active);
+      }
+    };
+
     const onScroll = () => {
       if (raf != null) return;
-      raf = requestAnimationFrame(compute);
+      raf = requestAnimationFrame(computeActive);
     };
+
+    // Reflows: thinking blocks toggle open/closed, images load, content
+    // streams in. Invalidate the snapshot and recompute lazily.
+    const resizeObserver = new ResizeObserver(() => {
+      needsRefresh = true;
+      if (raf == null) raf = requestAnimationFrame(computeActive);
+    });
+    resizeObserver.observe(messagesEl);
+    // Also observe the inner scroll content so child reflows count.
+    const content = messagesEl.firstElementChild;
+    if (content) resizeObserver.observe(content);
+
     messagesEl.addEventListener("scroll", onScroll, { passive: true });
-    // Initial compute once events have rendered.
-    const t = setTimeout(compute, 300);
+    // Initial compute after layout settles.
+    const t = setTimeout(() => {
+      needsRefresh = true;
+      computeActive();
+    }, 200);
+
     return () => {
       messagesEl.removeEventListener("scroll", onScroll);
+      resizeObserver.disconnect();
       if (raf != null) cancelAnimationFrame(raf);
       clearTimeout(t);
     };
@@ -345,7 +400,8 @@ export function ConversationView({
       const targetUuid = userMsgUuids[target_idx];
       if (scrollToEventEl(targetUuid, "smooth")) {
         lastUrlAppliedRef.current = targetUuid;
-        onActiveEventChange?.(targetUuid);
+        // Push history so the back button steps through user nav.
+        onActiveEventChange?.(targetUuid, "push");
       }
     };
     window.addEventListener("keydown", onKey);
