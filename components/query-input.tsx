@@ -77,14 +77,16 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
     }, [value, cursor]);
 
     // Decompose the current word into (key, prefix) for suggestion fetching.
+    // Empty word (focus on empty input, or cursor right after a space) falls
+    // back to the operator menu so users see what filters exist without
+    // having to type a character first.
     const lookup = useMemo(() => {
       const t = currentWord.text;
-      if (!t) return null;
+      if (!t) return { mode: "operator" as const, prefix: "" };
       const negated = t.startsWith("-");
       const body = negated ? t.slice(1) : t;
       const colon = body.indexOf(":");
       if (colon < 0) {
-        // typing the operator
         return { mode: "operator" as const, prefix: body.toLowerCase() };
       }
       return {
@@ -259,6 +261,9 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
               setCursor((e.target as HTMLInputElement).selectionStart || 0)
             }
             onKeyDown={handleKeyDown}
+            onFocus={() => {
+              if (suggestions.length > 0) setShowSuggestions(true);
+            }}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             placeholder={placeholder}
             aria-label="Search query"
