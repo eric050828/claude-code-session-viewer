@@ -7,6 +7,7 @@ import { ConversationView } from "./conversation-view";
 import { DetailPane } from "./detail-pane";
 import { TopBar } from "./top-bar";
 import { SearchDialog } from "./search-dialog";
+import { SettingsDialog } from "./settings-dialog";
 import type {
   ProjectMeta,
   SessionMeta,
@@ -15,6 +16,7 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { readUrl, writeUrl } from "@/lib/url-state";
+import { useSettings } from "@/lib/settings";
 
 export interface DetailContent {
   kind: "tool" | "subagent";
@@ -49,6 +51,8 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
   const [activeEventId, setActiveEventId] = useState<string | null>(
     initialUrl.e ?? null,
   );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settings = useSettings();
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [subagents, setSubagents] = useState<SubagentMeta[]>([]);
@@ -99,8 +103,9 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
       .finally(() => setLoadingSession(false));
   }, [activeProjectId, activeSessionId]);
 
-  // SSE live updates for active session
+  // SSE live updates for active session — gated by user setting.
   useEffect(() => {
+    if (!settings.liveUpdates) return;
     if (!activeProjectId || !activeSessionId) return;
     const url = `/api/stream/${activeProjectId}/${activeSessionId}`;
     const es = new EventSource(url);
@@ -121,7 +126,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
       /* browser auto-reconnects */
     };
     return () => es.close();
-  }, [activeProjectId, activeSessionId]);
+  }, [activeProjectId, activeSessionId, settings.liveUpdates]);
 
   // global keyboard shortcuts
   useEffect(() => {
@@ -129,6 +134,10 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         openSearch();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setSettingsOpen(true);
       }
       if (e.key === "Escape" && detail) {
         setDetail(null);
@@ -267,7 +276,11 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
 
   return (
     <div className="flex h-screen flex-col">
-      <TopBar onOpenSearch={openSearch} onReload={reloadProjects} />
+      <TopBar
+        onOpenSearch={openSearch}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onReload={reloadProjects}
+      />
       <div className="flex flex-1 overflow-hidden">
         <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-card">
           <div className="border-b border-border max-h-[40%] overflow-y-auto scrollbar-thin">
@@ -319,6 +332,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
         onHit={onSearchHit}
         projects={projects}
       />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

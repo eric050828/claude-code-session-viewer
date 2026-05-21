@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { themeInitScript } from "@/components/theme-toggle";
+import { themeInitScript } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Claude Code Session Viewer",

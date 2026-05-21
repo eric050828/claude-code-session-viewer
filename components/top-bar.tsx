@@ -1,13 +1,14 @@
 "use client";
 
-import { Search, RefreshCw, Sparkles } from "lucide-react";
-import { ThemeToggle } from "./theme-toggle";
+import { Search, RefreshCw, Settings as Gear, Sparkles } from "lucide-react";
 
 export function TopBar({
   onOpenSearch,
+  onOpenSettings,
   onReload,
 }: {
   onOpenSearch: () => void;
+  onOpenSettings: () => void;
   onReload: () => void;
 }) {
   return (
@@ -33,11 +34,19 @@ export function TopBar({
         <Search aria-hidden="true" className="h-3.5 w-3.5" />
         <span>Search across all sessions…</span>
         <kbd className="ml-auto rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-          {"⌘ K"}
+          {"⌘ K"}
         </kbd>
       </button>
       <div className="flex-1" />
-      <ThemeToggle />
+      <button
+        type="button"
+        onClick={onOpenSettings}
+        title="Settings"
+        aria-label="Open settings"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Gear aria-hidden="true" className="h-3.5 w-3.5" />
+      </button>
       <button
         type="button"
         onClick={onReload}

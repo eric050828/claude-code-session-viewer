@@ -5,9 +5,11 @@ import { Brain, ChevronRight } from "lucide-react";
 import { cn, truncate } from "@/lib/utils";
 import { Markdown } from "./markdown";
 import { CopyButton } from "./copy-button";
+import { useSettings } from "@/lib/settings";
 
 export function ThinkingBlock({ thinking }: { thinking: string }) {
-  const [open, setOpen] = useState(false);
+  const { expandThinking } = useSettings();
+  const [open, setOpen] = useState(expandThinking);
   return (
     <div className="my-2 rounded-md border border-border/40 bg-muted/20">
       <button

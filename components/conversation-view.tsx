@@ -22,6 +22,7 @@ import { ConversationMinimap } from "./conversation-minimap";
 import { Copyable } from "./copy-button";
 import { cn, formatTokens } from "@/lib/utils";
 import { RelativeTime } from "./relative-time";
+import { useSettings } from "@/lib/settings";
 import type { DetailContent } from "./app-shell";
 
 // Build pairing map: tool_use_id → { toolUse, toolResult, attachments[], toolUseResult }
@@ -160,6 +161,7 @@ export function ConversationView({
   /** called when scroll changes which user-msg is at the top */
   onActiveEventChange?: (uuid: string | null) => void;
 }) {
+  const settings = useSettings();
   const toolMap = useMemo(() => buildToolMap(events), [events]);
   const usage = useMemo(() => aggregateUsage(events), [events]);
   const subagentByCwd = useMemo(() => subagents, [subagents]);
@@ -248,7 +250,7 @@ export function ConversationView({
     const raf = requestAnimationFrame(() => {
       if (activeEventId && scrollToEventEl(activeEventId, "auto")) {
         lastUrlAppliedRef.current = activeEventId;
-      } else {
+      } else if (settings.autoScrollBottom) {
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
       didScrollRef.current = true;
@@ -328,9 +330,11 @@ export function ConversationView({
       e.preventDefault();
       const current = lastUrlAppliedRef.current;
       const idx = current ? userMsgUuids.indexOf(current) : -1;
-      // Positional mapping (not vim-default): j is left of k on the row,
-      // so j = previous (up the page), k = next (down the page).
-      const direction = e.key === "k" ? +1 : -1;
+      // Direction follows the user's setting.
+      // "j-up"   → j prev (−), k next (+)
+      // "j-down" → j next (+), k prev (−) (vim convention)
+      const downKey = settings.jkDirection === "j-up" ? "k" : "j";
+      const direction = e.key === downKey ? +1 : -1;
       let target_idx: number;
       if (idx < 0) {
         // No active selection yet — j jumps to last, k to first
@@ -350,7 +354,7 @@ export function ConversationView({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [userMsgUuids, scrollToEventEl, onActiveEventChange]);
+  }, [userMsgUuids, scrollToEventEl, onActiveEventChange, settings.jkDirection]);
 
   // ⌘F handler
   useEffect(() => {
@@ -689,10 +693,12 @@ export function ConversationView({
             );
           })}
         </div>
-        <ConversationMinimap
-          events={events}
-          scrollContainer={messagesEl}
-        />
+        {settings.showMinimap && (
+          <ConversationMinimap
+            events={events}
+            scrollContainer={messagesEl}
+          />
+        )}
       </div>
     </div>
   );
