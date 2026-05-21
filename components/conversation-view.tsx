@@ -20,11 +20,17 @@ import { MetaEventBlock } from "./meta-event-block";
 import { TurnDuration } from "./turn-duration";
 import { ConversationMinimap } from "./conversation-minimap";
 import { Copyable } from "./copy-button";
-import { cn, formatTokens } from "@/lib/utils";
+import { cn, cssEscape, formatTokens } from "@/lib/utils";
 import { RelativeTime } from "./relative-time";
 import { getShortcut, useSettings } from "@/lib/settings";
 import { isInEditable, matchShortcut } from "@/lib/keyboard";
 import type { DetailContent } from "./app-shell";
+
+// Scroll-tracking tuning. See the explainer comment inside
+// ConversationView for what each controls.
+const ANCHOR_OFFSET_PX = 100;
+const SCROLL_FLASH_MS = 1200;
+const INITIAL_COMPUTE_DELAY_MS = 200;
 
 // Build pairing map: tool_use_id → { toolUse, toolResult, attachments[], toolUseResult }
 export function buildToolMap(events: SessionEvent[]) {
@@ -215,7 +221,7 @@ export function ConversationView({
     (uuid: string, behavior: ScrollBehavior = "smooth") => {
       if (!messagesEl) return false;
       const el = messagesEl.querySelector(
-        `[data-event-uuid="${uuid}"]`,
+        `[data-event-uuid="${cssEscape(uuid)}"]`,
       ) as HTMLElement | null;
       if (!el) return false;
       const top = el.offsetTop - 8;
@@ -227,7 +233,7 @@ export function ConversationView({
       el.classList.add("ring-2", "ring-brand", "rounded-md");
       setTimeout(() => {
         el.classList.remove("ring-2", "ring-brand", "rounded-md");
-      }, 1200);
+      }, SCROLL_FLASH_MS);
       return true;
     },
     [messagesEl],
@@ -301,21 +307,19 @@ export function ConversationView({
     const refreshPositions = () => {
       positions = userMsgUuids.map((uuid) => {
         const el = messagesEl.querySelector(
-          `[data-event-uuid="${uuid}"]`,
+          `[data-event-uuid="${cssEscape(uuid)}"]`,
         ) as HTMLElement | null;
         return el ? el.offsetTop : Number.MAX_SAFE_INTEGER;
       });
       needsRefresh = false;
     };
 
-    const ANCHOR_OFFSET = 100;
-
     let raf: number | null = null;
     const computeActive = () => {
       raf = null;
       if (needsRefresh) refreshPositions();
       const scrollTop = messagesEl.scrollTop;
-      const anchor = scrollTop + ANCHOR_OFFSET;
+      const anchor = scrollTop + ANCHOR_OFFSET_PX;
       // Binary search for the last position <= anchor.
       let lo = 0;
       let hi = positions.length - 1;
@@ -357,7 +361,7 @@ export function ConversationView({
     const t = setTimeout(() => {
       needsRefresh = true;
       computeActive();
-    }, 200);
+    }, INITIAL_COMPUTE_DELAY_MS);
 
     return () => {
       messagesEl.removeEventListener("scroll", onScroll);

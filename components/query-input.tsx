@@ -34,6 +34,9 @@ interface QueryInputProps {
   ariaResultsId?: string;
   /** show the parsed-chip preview row */
   showPreview?: boolean;
+  /** notified when the autocomplete dropdown opens/closes; lets the parent
+   *  coordinate keyboard nav without DOM-querying for the listbox. */
+  onSuggestionsOpenChange?: (open: boolean) => void;
 }
 
 export interface QueryInputHandle {
@@ -52,6 +55,7 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
       className,
       ariaResultsId,
       showPreview = true,
+      onSuggestionsOpenChange,
     },
     ref,
   ) {
@@ -67,6 +71,12 @@ export const QueryInput = forwardRef<QueryInputHandle, QueryInputProps>(
     const [wantShown, setWantShown] = useState(false);
     const [activeSuggestion, setActiveSuggestion] = useState(0);
     const showSuggestions = wantShown && suggestions.length > 0;
+
+    // Notify the parent when the dropdown visibility flips. Lets callers
+    // (e.g. SearchDialog) avoid DOM-querying for the listbox.
+    useEffect(() => {
+      onSuggestionsOpenChange?.(showSuggestions);
+    }, [showSuggestions, onSuggestionsOpenChange]);
 
     const parsed = useMemo(() => parseQuery(value), [value]);
 

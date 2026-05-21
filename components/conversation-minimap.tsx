@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SessionEvent } from "@/lib/types";
-import { cn, truncate } from "@/lib/utils";
+import { cn, cssEscape, truncate } from "@/lib/utils";
 
 interface UserNode {
   uuid: string;
@@ -227,10 +227,3 @@ export function ConversationMinimap({
   );
 }
 
-function cssEscape(s: string): string {
-  // basic CSS.escape polyfill for selector use
-  if (typeof CSS !== "undefined" && (CSS as { escape?: (s: string) => string }).escape) {
-    return (CSS as { escape: (s: string) => string }).escape(s);
-  }
-  return s.replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c}`);
-}

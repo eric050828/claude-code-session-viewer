@@ -14,7 +14,7 @@ import type {
   SessionEvent,
   SubagentMeta,
 } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, cssEscape } from "@/lib/utils";
 import { readUrl, writeUrl } from "@/lib/url-state";
 import { getShortcut, useSettings } from "@/lib/settings";
 import { matchShortcut } from "@/lib/keyboard";
@@ -263,9 +263,10 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
       setActiveSessionId(hit.sessionId);
       closeSearch();
       if (hit.eventUuid) {
+        const eventUuid = hit.eventUuid;
         setTimeout(() => {
           const el = document.querySelector(
-            `[data-event-uuid="${hit.eventUuid}"]`,
+            `[data-event-uuid="${cssEscape(eventUuid)}"]`,
           );
           if (el) {
             el.scrollIntoView({ behavior: "smooth", block: "center" });

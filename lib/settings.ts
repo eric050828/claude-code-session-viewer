@@ -43,14 +43,37 @@ export function getShortcut(
 const STORAGE_KEY = "ccsv:settings";
 const LEGACY_THEME_KEY = "ccsv:theme";
 
+function isValidShortcuts(v: unknown): v is Settings["shortcuts"] {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+  return Object.values(v as Record<string, unknown>).every(
+    (x) => typeof x === "string",
+  );
+}
+
+function validateSettings(parsed: unknown): Settings {
+  if (!parsed || typeof parsed !== "object") return DEFAULT_SETTINGS;
+  const p = parsed as Record<string, unknown>;
+  const next: Settings = { ...DEFAULT_SETTINGS };
+  if (p.theme === "light" || p.theme === "dark" || p.theme === "system") {
+    next.theme = p.theme;
+  }
+  if (isValidShortcuts(p.shortcuts)) next.shortcuts = p.shortcuts;
+  for (const key of [
+    "showMinimap",
+    "expandThinking",
+    "liveUpdates",
+    "autoScrollBottom",
+  ] as const) {
+    if (typeof p[key] === "boolean") next[key] = p[key] as boolean;
+  }
+  return next;
+}
+
 function readStorage(): Settings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<Settings>;
-      return { ...DEFAULT_SETTINGS, ...parsed };
-    }
+    if (raw) return validateSettings(JSON.parse(raw));
     // First-load migration: pre-existing ccsv:theme moves into the blob.
     const legacy = window.localStorage.getItem(LEGACY_THEME_KEY) as
       | ThemeMode

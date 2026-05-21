@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Escape a string for safe use inside a CSS attribute selector. Used when
+ * looking up DOM elements by uuid that came from the URL — otherwise a
+ * crafted ?e=foo"] would throw DOMException on querySelector.
+ */
+export function cssEscape(s: string): string {
+  if (typeof CSS !== "undefined" && (CSS as { escape?: (s: string) => string }).escape) {
+    return (CSS as { escape: (s: string) => string }).escape(s);
+  }
+  return s.replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c}`);
+}
+
 export function formatRelative(ts: string | null | undefined): string {
   if (!ts) return "";
   const d = new Date(ts);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs/promises";
+import nodePath from "node:path";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,22 @@ const MAX_BYTES = 2 * 1024 * 1024; // 2 MB — UI shouldn't render larger blobs 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const path = url.searchParams.get("path");
+  // First-line check: literal regex against the convention.
   if (!path || !ALLOWED_PATH.test(path)) {
     return NextResponse.json(
       { error: "path must match the Claude Code task-output convention" },
+      { status: 400 },
+    );
+  }
+  // Second line: the regex's `[^/]+` segments accept `..`, so a string like
+  // /tmp/claude-A/x/../../claude-B/y/z/tasks/q.output passes the regex but
+  // resolves to /tmp/claude-B/y/z/tasks/q.output — another user's data on a
+  // shared host. Normalize and require the result to equal the input AND
+  // still match the convention.
+  const normalized = nodePath.normalize(path);
+  if (normalized !== path || !ALLOWED_PATH.test(normalized)) {
+    return NextResponse.json(
+      { error: "path must be canonical (no '..' or redundant segments)" },
       { status: 400 },
     );
   }

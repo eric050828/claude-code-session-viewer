@@ -53,6 +53,9 @@ export function SearchDialog({
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
+  // QueryInput tells us when its suggestion dropdown is open so we can
+  // defer arrow-key handling to it without sniffing the DOM.
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const inputRef = useRef<QueryInputHandle>(null);
   const projectMap = useMemo(
     () => new Map(projects.map((p) => [p.id, p])),
@@ -97,18 +100,13 @@ export function SearchDialog({
     };
   }, [q]);
 
-  // Result-list keyboard nav lives at the dialog level so it works even
-  // when focus is inside QueryInput's autocomplete (which intercepts arrow
-  // keys only when its own dropdown is showing).
+  // Result-list keyboard nav. Defers to QueryInput when its suggestion
+  // dropdown is open (QueryInput handles arrow keys for the dropdown
+  // itself); otherwise drives the result-row selection.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      // QueryInput will have already consumed ArrowUp/Down if its dropdown
-      // is open; here we just handle result-list nav.
-      const isDropdownOpen = !!document.querySelector(
-        '[role="listbox"][aria-label="Search suggestions"]',
-      );
-      if (isDropdownOpen) return;
+      if (suggestionsOpen) return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setActive((a) => Math.min(a + 1, hits.length - 1));
@@ -121,7 +119,7 @@ export function SearchDialog({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, hits, active, onHit]);
+  }, [open, hits, active, onHit, suggestionsOpen]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -144,6 +142,7 @@ export function SearchDialog({
                   onChange={setQ}
                   placeholder="Search… try id:abc12345 or tool:Bash"
                   ariaResultsId="search-results"
+                  onSuggestionsOpenChange={setSuggestionsOpen}
                 />
               </div>
               {loading && (
