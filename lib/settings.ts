@@ -21,6 +21,8 @@ export interface Settings {
   /** When opening a session and the URL has no event anchor, jump to the
    *  end of the conversation. Off = stay at top. */
   autoScrollBottom: boolean;
+  /** Hide the project+session sidebar to give the conversation more room. */
+  sidebarCollapsed: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -30,6 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
   expandThinking: false,
   liveUpdates: true,
   autoScrollBottom: true,
+  sidebarCollapsed: false,
 };
 
 /** Resolve the active combo for an action (user override or default). */
@@ -63,6 +66,7 @@ function validateSettings(parsed: unknown): Settings {
     "expandThinking",
     "liveUpdates",
     "autoScrollBottom",
+    "sidebarCollapsed",
   ] as const) {
     if (typeof p[key] === "boolean") next[key] = p[key] as boolean;
   }

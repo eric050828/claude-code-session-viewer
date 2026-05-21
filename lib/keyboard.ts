@@ -16,7 +16,8 @@ export type ShortcutAction =
   | "settings.open"
   | "find.open"
   | "nav.prev"
-  | "nav.next";
+  | "nav.next"
+  | "sidebar.toggle";
 
 export const SHORTCUT_DEFAULTS: Record<ShortcutAction, string> = {
   "search.open": "Mod+K",
@@ -24,6 +25,7 @@ export const SHORTCUT_DEFAULTS: Record<ShortcutAction, string> = {
   "find.open": "Mod+F",
   "nav.prev": "j",
   "nav.next": "k",
+  "sidebar.toggle": "Mod+b",
 };
 
 export const SHORTCUT_META: Record<
@@ -55,6 +57,11 @@ export const SHORTCUT_META: Record<
     hint: "Scroll to the user message below",
     gateInInputs: true,
   },
+  "sidebar.toggle": {
+    name: "Toggle sidebar",
+    hint: "Hide or show the project + session list",
+    gateInInputs: false,
+  },
 };
 
 export const ALL_ACTIONS: ShortcutAction[] = [
@@ -63,6 +70,7 @@ export const ALL_ACTIONS: ShortcutAction[] = [
   "find.open",
   "nav.prev",
   "nav.next",
+  "sidebar.toggle",
 ];
 
 interface ParsedCombo {

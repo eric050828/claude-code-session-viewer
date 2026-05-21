@@ -16,7 +16,7 @@ import type {
 } from "@/lib/types";
 import { cn, cssEscape } from "@/lib/utils";
 import { readUrl, writeUrl } from "@/lib/url-state";
-import { getShortcut, useSettings } from "@/lib/settings";
+import { getShortcut, updateSettings, useSettings } from "@/lib/settings";
 import { matchShortcut } from "@/lib/keyboard";
 
 export interface DetailContent {
@@ -129,6 +129,10 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     return () => es.close();
   }, [activeProjectId, activeSessionId, settings.liveUpdates]);
 
+  const toggleSidebar = useCallback(() => {
+    updateSettings({ sidebarCollapsed: !settings.sidebarCollapsed });
+  }, [settings.sidebarCollapsed]);
+
   // global keyboard shortcuts — bindings come from settings
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -142,6 +146,11 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
         setSettingsOpen(true);
         return;
       }
+      if (matchShortcut(getShortcut(settings, "sidebar.toggle"), e)) {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
       if (e.key === "Escape" && detail) {
         setDetail(null);
       }
@@ -149,7 +158,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail, settings.shortcuts]);
+  }, [detail, settings.shortcuts, toggleSidebar]);
 
   // Browser back/forward — re-read URL and apply.
   useEffect(() => {
@@ -287,9 +296,17 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
         onOpenSearch={openSearch}
         onOpenSettings={() => setSettingsOpen(true)}
         onReload={reloadProjects}
+        onToggleSidebar={toggleSidebar}
+        sidebarCollapsed={settings.sidebarCollapsed}
       />
       <div className="flex flex-1 overflow-hidden">
-        <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-card">
+        <aside
+          className={cn(
+            "flex shrink-0 flex-col overflow-hidden border-r border-border bg-card transition-[width] duration-200 motion-reduce:transition-none",
+            settings.sidebarCollapsed ? "w-0 border-r-0" : "w-72",
+          )}
+          aria-hidden={settings.sidebarCollapsed}
+        >
           <div className="border-b border-border max-h-[40%] overflow-y-auto scrollbar-thin">
             <ProjectTree
               projects={projects}

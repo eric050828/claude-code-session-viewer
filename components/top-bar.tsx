@@ -1,18 +1,45 @@
 "use client";
 
-import { Search, RefreshCw, Settings as Gear, Sparkles } from "lucide-react";
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  RefreshCw,
+  Search,
+  Settings as Gear,
+  Sparkles,
+} from "lucide-react";
+import { formatCombo } from "@/lib/keyboard";
+import { getShortcut, useSettings } from "@/lib/settings";
 
 export function TopBar({
   onOpenSearch,
   onOpenSettings,
   onReload,
+  onToggleSidebar,
+  sidebarCollapsed,
 }: {
   onOpenSearch: () => void;
   onOpenSettings: () => void;
   onReload: () => void;
+  onToggleSidebar: () => void;
+  sidebarCollapsed: boolean;
 }) {
+  const settings = useSettings();
+  const sidebarShortcut = formatCombo(getShortcut(settings, "sidebar.toggle"));
+  const SidebarIcon = sidebarCollapsed ? PanelLeftOpen : PanelLeftClose;
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
+      <button
+        type="button"
+        onClick={onToggleSidebar}
+        title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (${sidebarShortcut})`}
+        aria-label={`${sidebarCollapsed ? "Show" : "Hide"} sidebar`}
+        aria-keyshortcuts="Meta+B Control+B"
+        aria-pressed={!sidebarCollapsed}
+        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <SidebarIcon aria-hidden="true" className="h-3.5 w-3.5" />
+      </button>
       <div className="flex items-center gap-2">
         <div
           aria-hidden="true"
