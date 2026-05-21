@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Brain, ChevronRight } from "lucide-react";
 import { cn, truncate } from "@/lib/utils";
 import { Markdown } from "./markdown";
@@ -10,6 +10,12 @@ import { useSettings } from "@/lib/settings";
 export function ThinkingBlock({ thinking }: { thinking: string }) {
   const { expandThinking } = useSettings();
   const [open, setOpen] = useState(expandThinking);
+  // Sync with the global toggle so flipping the setting immediately
+  // applies to every already-rendered block. User per-block clicks set
+  // state locally and persist until the setting changes again.
+  useEffect(() => {
+    setOpen(expandThinking);
+  }, [expandThinking]);
   return (
     <div className="my-2 rounded-md border border-border/40 bg-muted/20">
       <button
