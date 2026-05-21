@@ -11,6 +11,8 @@ export interface UrlState {
   s?: string;
   /** undefined = search closed; "" = open with empty query; "foo" = open with query */
   q?: string;
+  /** event uuid currently in view — replaceState-mode so it doesn't pollute history */
+  e?: string;
 }
 
 export function readUrl(): UrlState {
@@ -21,8 +23,9 @@ export function readUrl(): UrlState {
   if (p) out.p = p;
   const s = params.get("s");
   if (s) out.s = s;
-  // distinguish "q is missing" from "q is empty string"
   if (params.has("q")) out.q = params.get("q") || "";
+  const e = params.get("e");
+  if (e) out.e = e;
   return out;
 }
 
@@ -35,6 +38,7 @@ export function writeUrl(
   if (next.p) params.set("p", next.p);
   if (next.s) params.set("s", next.s);
   if (next.q !== undefined) params.set("q", next.q);
+  if (next.e) params.set("e", next.e);
   const qs = params.toString();
   const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
   // Don't push a duplicate entry — back button skipping is worse than

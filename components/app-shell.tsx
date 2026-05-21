@@ -46,6 +46,9 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
   );
   const [searchOpen, setSearchOpen] = useState(initialUrl.q !== undefined);
   const [searchQuery, setSearchQuery] = useState(initialUrl.q ?? "");
+  const [activeEventId, setActiveEventId] = useState<string | null>(
+    initialUrl.e ?? null,
+  );
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [subagents, setSubagents] = useState<SubagentMeta[]>([]);
@@ -56,6 +59,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
   // Set true while we're applying state from a popstate event, so the
   // sync effects below don't loop the URL back to themselves.
   const popInFlight = useRef(false);
+  const eventUrlTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const reloadProjects = useCallback(async () => {
     const r = await fetch("/api/projects");
@@ -144,7 +148,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
       setActiveSessionId(u.s ?? null);
       setSearchOpen(u.q !== undefined);
       setSearchQuery(u.q ?? "");
-      // release on next tick so the URL-sync effects ignore this batch
+      setActiveEventId(u.e ?? null);
       setTimeout(() => {
         popInFlight.current = false;
       }, 0);
@@ -162,6 +166,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
         p: activeProjectId || undefined,
         s: activeSessionId || undefined,
         q: searchOpen ? searchQuery : undefined,
+        e: activeEventId || undefined,
       },
       "push",
     );
@@ -177,11 +182,36 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
         p: activeProjectId || undefined,
         s: activeSessionId || undefined,
         q: searchQuery,
+        e: activeEventId || undefined,
       },
       "replace",
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
+
+  // Scroll-tracked active event — debounced replaceState so the URL
+  // updates as the user scrolls without writing on every frame and
+  // without polluting history (you don't want one back-press per
+  // pixel scrolled).
+  const onActiveEventChange = useCallback(
+    (uuid: string | null) => {
+      if (popInFlight.current) return;
+      setActiveEventId(uuid);
+      if (eventUrlTimerRef.current) clearTimeout(eventUrlTimerRef.current);
+      eventUrlTimerRef.current = setTimeout(() => {
+        writeUrl(
+          {
+            p: activeProjectId || undefined,
+            s: activeSessionId || undefined,
+            q: searchOpen ? searchQuery : undefined,
+            e: uuid || undefined,
+          },
+          "replace",
+        );
+      }, 250);
+    },
+    [activeProjectId, activeSessionId, searchOpen, searchQuery],
+  );
 
   const openSearch = useCallback(() => {
     setSearchOpen(true);
@@ -269,6 +299,8 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
             subagents={subagents}
             loading={loadingSession}
             onShowDetail={setDetail}
+            activeEventId={activeEventId}
+            onActiveEventChange={onActiveEventChange}
           />
         </main>
 

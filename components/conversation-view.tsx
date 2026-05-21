@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -146,6 +146,8 @@ export function ConversationView({
   subagents,
   loading,
   onShowDetail,
+  activeEventId,
+  onActiveEventChange,
 }: {
   project: ProjectMeta | null;
   session: SessionMeta | null;
@@ -153,6 +155,10 @@ export function ConversationView({
   subagents: SubagentMeta[];
   loading: boolean;
   onShowDetail: (d: DetailContent | null) => void;
+  /** event uuid the URL currently points at; ConversationView scrolls to it */
+  activeEventId?: string | null;
+  /** called when scroll changes which user-msg is at the top */
+  onActiveEventChange?: (uuid: string | null) => void;
 }) {
   const toolMap = useMemo(() => buildToolMap(events), [events]);
   const usage = useMemo(() => aggregateUsage(events), [events]);
@@ -172,6 +178,52 @@ export function ConversationView({
   const sessionIdRef = useRef<string | null>(null);
   const didScrollRef = useRef(false);
   const findInputRef = useRef<HTMLInputElement | null>(null);
+  const lastUrlAppliedRef = useRef<string | null>(null);
+
+  // Ordered uuids of *renderable* user messages (skip the tool_result-only
+  // continuations). This is the navigation set for j/k and minimap.
+  const userMsgUuids = useMemo(() => {
+    const out: string[] = [];
+    for (const ev of events) {
+      if (ev.type !== "user" || !ev.uuid) continue;
+      const content = (ev as { message?: { content?: unknown } }).message?.content;
+      let visible = false;
+      if (typeof content === "string") {
+        visible = content.trim().length > 0;
+      } else if (Array.isArray(content)) {
+        visible = content.some(
+          (b) =>
+            b &&
+            typeof b === "object" &&
+            (b as { type?: string }).type !== "tool_result",
+        );
+      }
+      if (visible) out.push(ev.uuid);
+    }
+    return out;
+  }, [events]);
+
+  const scrollToEventEl = useCallback(
+    (uuid: string, behavior: ScrollBehavior = "smooth") => {
+      if (!messagesEl) return false;
+      const el = messagesEl.querySelector(
+        `[data-event-uuid="${uuid}"]`,
+      ) as HTMLElement | null;
+      if (!el) return false;
+      const top = el.offsetTop - 8;
+      if (behavior === "smooth") {
+        messagesEl.scrollTo({ top, behavior: "smooth" });
+      } else {
+        messagesEl.scrollTop = top;
+      }
+      el.classList.add("ring-2", "ring-brand", "rounded-md");
+      setTimeout(() => {
+        el.classList.remove("ring-2", "ring-brand", "rounded-md");
+      }, 1200);
+      return true;
+    },
+    [messagesEl],
+  );
 
   // Focus the find input when the find bar opens — but only after the next
   // animation frame so we don't yank focus on touch devices that hadn't
@@ -182,23 +234,116 @@ export function ConversationView({
     return () => cancelAnimationFrame(id);
   }, [findOpen]);
 
-  // Auto-scroll to bottom on session open.
-  // Reset the "did-scroll" flag whenever the active session changes;
-  // then scroll once the first batch of events has rendered and laid out.
+  // Initial scroll: if the URL points at a specific event, jump to it.
+  // Otherwise scroll to bottom (existing behavior). Reset the flag on
+  // session change so each new session gets one initial-scroll.
   useEffect(() => {
     if (session?.id !== sessionIdRef.current) {
       sessionIdRef.current = session?.id ?? null;
       didScrollRef.current = false;
+      lastUrlAppliedRef.current = null;
     }
     if (didScrollRef.current) return;
     if (!messagesEl || events.length === 0) return;
-    // Defer to next frame so message content has laid out before measuring.
     const raf = requestAnimationFrame(() => {
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      if (activeEventId && scrollToEventEl(activeEventId, "auto")) {
+        lastUrlAppliedRef.current = activeEventId;
+      } else {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
       didScrollRef.current = true;
     });
     return () => cancelAnimationFrame(raf);
-  }, [session?.id, events, messagesEl]);
+  }, [session?.id, events, messagesEl, activeEventId, scrollToEventEl]);
+
+  // Subsequent activeEventId changes (e.g. browser back/forward to a
+  // different event in the same session) — scroll there.
+  useEffect(() => {
+    if (!didScrollRef.current) return;
+    if (!activeEventId) return;
+    if (activeEventId === lastUrlAppliedRef.current) return;
+    if (scrollToEventEl(activeEventId, "smooth")) {
+      lastUrlAppliedRef.current = activeEventId;
+    }
+  }, [activeEventId, scrollToEventEl]);
+
+  // Track which user message is at the top of the viewport and call up to
+  // AppShell so it can mirror it to the URL. Uses rAF to keep cost minimal
+  // while scrolling.
+  useEffect(() => {
+    if (!messagesEl) return;
+    if (!onActiveEventChange) return;
+    let raf: number | null = null;
+    const compute = () => {
+      raf = null;
+      // Find the last user-message uuid whose top edge has crossed our
+      // anchor line (100px below the scroller's top).
+      const scrollerTop = messagesEl.getBoundingClientRect().top;
+      const anchor = scrollerTop + 100;
+      let candidate: string | null = null;
+      for (const uuid of userMsgUuids) {
+        const el = messagesEl.querySelector(
+          `[data-event-uuid="${uuid}"]`,
+        ) as HTMLElement | null;
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= anchor) candidate = uuid;
+        else break;
+      }
+      // Skip the update if we just programmatically scrolled to this id
+      // (avoid bouncing the URL between two adjacent uuids).
+      lastUrlAppliedRef.current = candidate;
+      onActiveEventChange(candidate);
+    };
+    const onScroll = () => {
+      if (raf != null) return;
+      raf = requestAnimationFrame(compute);
+    };
+    messagesEl.addEventListener("scroll", onScroll, { passive: true });
+    // Initial compute once events have rendered.
+    const t = setTimeout(compute, 300);
+    return () => {
+      messagesEl.removeEventListener("scroll", onScroll);
+      if (raf != null) cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [messagesEl, userMsgUuids, onActiveEventChange]);
+
+  // j / k — jump to next / previous user message. Skips when focus is in
+  // an editable element so users can still type those letters into
+  // inputs.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== "j" && e.key !== "k") return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      )
+        return;
+      if (!userMsgUuids.length) return;
+      e.preventDefault();
+      const current = lastUrlAppliedRef.current;
+      const idx = current ? userMsgUuids.indexOf(current) : -1;
+      let target_idx: number;
+      if (e.key === "j") {
+        target_idx = idx < 0 ? 0 : Math.min(idx + 1, userMsgUuids.length - 1);
+      } else {
+        target_idx = idx < 0 ? userMsgUuids.length - 1 : Math.max(idx - 1, 0);
+      }
+      if (target_idx === idx) return;
+      const targetUuid = userMsgUuids[target_idx];
+      if (scrollToEventEl(targetUuid, "smooth")) {
+        lastUrlAppliedRef.current = targetUuid;
+        onActiveEventChange?.(targetUuid);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [userMsgUuids, scrollToEventEl, onActiveEventChange]);
 
   // ⌘F handler
   useEffect(() => {
