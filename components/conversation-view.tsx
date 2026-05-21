@@ -328,11 +328,18 @@ export function ConversationView({
       e.preventDefault();
       const current = lastUrlAppliedRef.current;
       const idx = current ? userMsgUuids.indexOf(current) : -1;
+      // Positional mapping (not vim-default): j is left of k on the row,
+      // so j = previous (up the page), k = next (down the page).
+      const direction = e.key === "k" ? +1 : -1;
       let target_idx: number;
-      if (e.key === "j") {
-        target_idx = idx < 0 ? 0 : Math.min(idx + 1, userMsgUuids.length - 1);
+      if (idx < 0) {
+        // No active selection yet — j jumps to last, k to first
+        target_idx = direction > 0 ? 0 : userMsgUuids.length - 1;
       } else {
-        target_idx = idx < 0 ? userMsgUuids.length - 1 : Math.max(idx - 1, 0);
+        target_idx = Math.max(
+          0,
+          Math.min(userMsgUuids.length - 1, idx + direction),
+        );
       }
       if (target_idx === idx) return;
       const targetUuid = userMsgUuids[target_idx];
