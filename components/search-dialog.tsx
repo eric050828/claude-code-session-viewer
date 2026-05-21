@@ -35,15 +35,21 @@ const EXAMPLES = [
 export function SearchDialog({
   open,
   onOpenChange,
+  query,
+  onQueryChange,
   onHit,
   projects,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** controlled — owner (AppShell) keeps the URL in sync. */
+  query: string;
+  onQueryChange: (next: string) => void;
   onHit: (hit: SearchHit) => void;
   projects: ProjectMeta[];
 }) {
-  const [q, setQ] = useState("");
+  const q = query;
+  const setQ = onQueryChange;
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
@@ -57,7 +63,6 @@ export function SearchDialog({
 
   useEffect(() => {
     if (!open) {
-      setQ("");
       setHits([]);
       setActive(0);
     } else {

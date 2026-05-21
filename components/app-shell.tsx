@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProjectTree } from "./project-tree";
 import { SessionList } from "./session-list";
 import { ConversationView } from "./conversation-view";
@@ -14,6 +14,7 @@ import type {
   SubagentMeta,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { readUrl, writeUrl } from "@/lib/url-state";
 
 export interface DetailContent {
   kind: "tool" | "subagent";
@@ -32,17 +33,29 @@ export interface DetailContent {
 
 export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }) {
   const [projects, setProjects] = useState(initialProjects);
+
+  // Initial state comes from the URL when present (so deep-links and
+  // reload-after-back-button restore the right view). Falls back to the
+  // first project as before.
+  const initialUrl = useMemo(() => readUrl(), []);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(
-    initialProjects[0]?.id ?? null,
+    initialUrl.p ?? initialProjects[0]?.id ?? null,
   );
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(
+    initialUrl.s ?? null,
+  );
+  const [searchOpen, setSearchOpen] = useState(initialUrl.q !== undefined);
+  const [searchQuery, setSearchQuery] = useState(initialUrl.q ?? "");
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [subagents, setSubagents] = useState<SubagentMeta[]>([]);
   const [detail, setDetail] = useState<DetailContent | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [loadingSession, setLoadingSession] = useState(false);
+
+  // Set true while we're applying state from a popstate event, so the
+  // sync effects below don't loop the URL back to themselves.
+  const popInFlight = useRef(false);
 
   const reloadProjects = useCallback(async () => {
     const r = await fetch("/api/projects");
@@ -96,13 +109,12 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
       } catch {}
     });
     es.addEventListener("reset", () => {
-      // reload from scratch
       fetch(`/api/session/${activeProjectId}/${activeSessionId}`)
         .then((r) => r.json())
         .then((j) => setEvents(j.events || []));
     });
     es.onerror = () => {
-      // browser will auto-reconnect; ignore
+      /* browser auto-reconnects */
     };
     return () => es.close();
   }, [activeProjectId, activeSessionId]);
@@ -112,7 +124,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setSearchOpen(true);
+        openSearch();
       }
       if (e.key === "Escape" && detail) {
         setDetail(null);
@@ -120,7 +132,71 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail]);
+
+  // Browser back/forward — re-read URL and apply.
+  useEffect(() => {
+    const onPop = () => {
+      popInFlight.current = true;
+      const u = readUrl();
+      setActiveProjectId(u.p ?? null);
+      setActiveSessionId(u.s ?? null);
+      setSearchOpen(u.q !== undefined);
+      setSearchQuery(u.q ?? "");
+      // release on next tick so the URL-sync effects ignore this batch
+      setTimeout(() => {
+        popInFlight.current = false;
+      }, 0);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Keep URL in sync with nav state (project + session). Push entries so
+  // back button steps through these.
+  useEffect(() => {
+    if (popInFlight.current) return;
+    writeUrl(
+      {
+        p: activeProjectId || undefined,
+        s: activeSessionId || undefined,
+        q: searchOpen ? searchQuery : undefined,
+      },
+      "push",
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId, activeSessionId, searchOpen]);
+
+  // Search-query typing replaces (don't pollute history per keystroke).
+  useEffect(() => {
+    if (popInFlight.current) return;
+    if (!searchOpen) return;
+    writeUrl(
+      {
+        p: activeProjectId || undefined,
+        s: activeSessionId || undefined,
+        q: searchQuery,
+      },
+      "replace",
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  const openSearch = useCallback(() => {
+    setSearchOpen(true);
+  }, []);
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  }, []);
+  const onSearchOpenChange = useCallback(
+    (v: boolean) => {
+      if (v) openSearch();
+      else closeSearch();
+    },
+    [openSearch, closeSearch],
+  );
 
   const activeProject = useMemo(
     () => projects.find((p) => p.id === activeProjectId) || null,
@@ -135,14 +211,12 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     async (hit: { projectId: string; sessionId: string; eventUuid?: string }) => {
       if (hit.projectId !== activeProjectId) {
         setActiveProjectId(hit.projectId);
-        // wait for sessions to load before selecting
         const r = await fetch(`/api/sessions/${hit.projectId}`);
         const j = await r.json();
         setSessions(j.sessions || []);
       }
       setActiveSessionId(hit.sessionId);
-      setSearchOpen(false);
-      // scroll into view of event after load
+      closeSearch();
       if (hit.eventUuid) {
         setTimeout(() => {
           const el = document.querySelector(
@@ -158,17 +232,13 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
         }, 400);
       }
     },
-    [activeProjectId],
+    [activeProjectId, closeSearch],
   );
 
   return (
     <div className="flex h-screen flex-col">
-      <TopBar
-        onOpenSearch={() => setSearchOpen(true)}
-        onReload={reloadProjects}
-      />
+      <TopBar onOpenSearch={openSearch} onReload={reloadProjects} />
       <div className="flex flex-1 overflow-hidden">
-        {/* left sidebar: projects (top) + sessions (bottom) */}
         <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-card">
           <div className="border-b border-border max-h-[40%] overflow-y-auto scrollbar-thin">
             <ProjectTree
@@ -191,7 +261,6 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
           </div>
         </aside>
 
-        {/* main: conversation */}
         <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <ConversationView
             project={activeProject}
@@ -203,7 +272,6 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
           />
         </main>
 
-        {/* right: detail pane */}
         <DetailPane
           detail={detail}
           onClose={() => setDetail(null)}
@@ -213,7 +281,9 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
 
       <SearchDialog
         open={searchOpen}
-        onOpenChange={setSearchOpen}
+        onOpenChange={onSearchOpenChange}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
         onHit={onSearchHit}
         projects={projects}
       />
