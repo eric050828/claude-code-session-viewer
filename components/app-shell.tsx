@@ -262,6 +262,19 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
     [sessions, activeSessionId],
   );
 
+  const onSelectRecent = useCallback(
+    async (projectId: string, sessionId: string) => {
+      if (projectId !== activeProjectId) {
+        setActiveProjectId(projectId);
+        const r = await fetch(`/api/sessions/${projectId}`);
+        const j = await r.json();
+        setSessions(j.sessions || []);
+      }
+      setActiveSessionId(sessionId);
+    },
+    [activeProjectId],
+  );
+
   const onSearchHit = useCallback(
     async (hit: { projectId: string; sessionId: string; eventUuid?: string }) => {
       if (hit.projectId !== activeProjectId) {
@@ -347,6 +360,7 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
             onActiveEventChange={onActiveEventChange}
             sidebarCollapsed={settings.sidebarCollapsed}
             onToggleSidebar={toggleSidebar}
+            onSelectRecent={onSelectRecent}
           />
         </main>
 

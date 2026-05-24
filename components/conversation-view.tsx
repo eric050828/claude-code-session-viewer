@@ -20,6 +20,7 @@ import { MetaEventBlock } from "./meta-event-block";
 import { TurnDuration } from "./turn-duration";
 import { ConversationMinimap } from "./conversation-minimap";
 import { SidebarToggleButton } from "./sidebar-toggle";
+import { RecentSessions } from "./recent-sessions";
 import { Copyable } from "./copy-button";
 import { cn, cssEscape, formatTokens } from "@/lib/utils";
 import { RelativeTime } from "./relative-time";
@@ -159,6 +160,7 @@ export function ConversationView({
   onActiveEventChange,
   sidebarCollapsed,
   onToggleSidebar,
+  onSelectRecent,
 }: {
   project: ProjectMeta | null;
   session: SessionMeta | null;
@@ -171,6 +173,8 @@ export function ConversationView({
   /** sidebar state — used to render the expand button when collapsed. */
   sidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  /** called when the user picks a session from the empty-state Recent list. */
+  onSelectRecent?: (projectId: string, sessionId: string) => void;
   /** called when active user-msg changes.
    *  mode='replace' (default) for scroll tracking; 'push' for explicit
    *  user navigation (j/k) so the back button can step through messages. */
@@ -521,21 +525,18 @@ export function ConversationView({
 
   if (!session) {
     return (
-      <div id="main" className="relative flex h-full flex-col">
+      <div id="main" className="relative flex h-full flex-col overflow-y-auto">
         {sidebarCollapsed && onToggleSidebar && (
-          <div className="absolute left-2 top-2">
+          <div className="absolute left-2 top-2 z-10">
             <SidebarToggleButton collapsed onToggle={onToggleSidebar} />
           </div>
         )}
-        <div className="m-auto flex flex-col items-center text-muted-foreground">
-          <div className="text-sm">
-            Select a session to view its conversation.
-          </div>
-          {project && (
-            <div className="mt-2 font-mono text-xs" translate="no">
-              {project.decodedPath}
-            </div>
-          )}
+        <div className="flex flex-1 flex-col items-center px-6 py-10">
+          <p className="mb-6 text-center text-sm text-muted-foreground">
+            Pick a session from the sidebar — or jump back into something you
+            were just looking at.
+          </p>
+          {onSelectRecent && <RecentSessions onSelect={onSelectRecent} />}
         </div>
       </div>
     );
