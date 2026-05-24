@@ -1,6 +1,6 @@
 {
   "name": "claude-code-session-viewer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Local web viewer + CLI for browsing Claude Code session logs in ~/.claude/projects/",
   "license": "MIT",
   "keywords": [
