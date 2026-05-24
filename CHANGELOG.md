@@ -6,6 +6,18 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-05-24
+
+### Added
+
+- **Recent activity** empty state. When no session is selected, the
+  conversation pane lists the 12 most recently modified sessions across
+  all projects, sorted by `lastTimestamp` desc. Each item shows the
+  project path, git branch, message/tool counts, sub-agent badge, an
+  active-session indicator, and relative time. Same Cmd-click /
+  middle-click opens-in-new-tab semantics as the sidebar list.
+- **`GET /api/recent`** endpoint backing the empty state.
+
 ## [0.2.0] — 2026-05-21
 
 ### Added
