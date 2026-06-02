@@ -6,6 +6,7 @@ import type {
   ProjectMeta,
   SessionEvent,
   SessionMeta,
+  SourceId,
   SubagentMeta,
 } from "./types";
 import {
@@ -78,6 +79,7 @@ export async function listProjects(): Promise<ProjectMeta[]> {
       decodedPath,
       sessionCount,
       lastModified: lastModified.toISOString(),
+      source: "claude" as SourceId,
     } satisfies ProjectMeta;
   }).then((arr) => arr.filter((p): p is ProjectMeta => !!p));
 
@@ -153,6 +155,7 @@ export async function listSessions(projectId: string): Promise<SessionMeta[]> {
       return {
         ...summary,
         isActive: now - stat.mtime.getTime() < ACTIVE_THRESHOLD_MS,
+        source: "claude" as SourceId,
       };
     },
   );
@@ -289,6 +292,7 @@ async function summarizeSession(
     hasSubagents,
     gitBranch,
     cwd,
+    source: "claude" as SourceId,
   };
 }
 

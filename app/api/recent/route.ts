@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listProjects, listSessions } from "@/lib/session-loader";
+import { listProjects, listSessions } from "@/lib/sources";
 import { pMap } from "@/lib/cache";
 import type { ProjectMeta, SessionMeta } from "@/lib/types";
 

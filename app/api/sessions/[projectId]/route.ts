@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listSessions } from "@/lib/session-loader";
+import { listSessions } from "@/lib/sources";
 
 export const dynamic = "force-dynamic";
 

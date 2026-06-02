@@ -38,21 +38,19 @@ export interface DetailContent {
 export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }) {
   const [projects, setProjects] = useState(initialProjects);
 
-  // Initial state comes from the URL when present (so deep-links and
-  // reload-after-back-button restore the right view). Falls back to the
-  // first project as before.
-  const initialUrl = useMemo(() => readUrl(), []);
+  // Initial render must be identical on server and client to avoid a
+  // hydration mismatch, so these start from server-stable defaults (NOT
+  // the URL — the server has no `window`). The URL is applied once on
+  // mount, below. Without this, deep-linking to any non-first project
+  // (e.g. every Codex session, since Codex projects never sort first)
+  // hydrates the wrong active project and React throws #418/#423.
   const [activeProjectId, setActiveProjectId] = useState<string | null>(
-    initialUrl.p ?? initialProjects[0]?.id ?? null,
+    initialProjects[0]?.id ?? null,
   );
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(
-    initialUrl.s ?? null,
-  );
-  const [searchOpen, setSearchOpen] = useState(initialUrl.q !== undefined);
-  const [searchQuery, setSearchQuery] = useState(initialUrl.q ?? "");
-  const [activeEventId, setActiveEventId] = useState<string | null>(
-    initialUrl.e ?? null,
-  );
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settings = useSettings();
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -66,6 +64,29 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
   // sync effects below don't loop the URL back to themselves.
   const popInFlight = useRef(false);
   const eventUrlTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Apply the URL once after mount. Runs only on the client (after
+  // hydration), so the server/client initial render stays identical.
+  // Guarded with popInFlight so the URL-sync effects don't re-push.
+  useEffect(() => {
+    const u = readUrl();
+    if (
+      u.p === undefined &&
+      u.s === undefined &&
+      u.q === undefined &&
+      u.e === undefined
+    )
+      return;
+    popInFlight.current = true;
+    if (u.p !== undefined) setActiveProjectId(u.p);
+    if (u.s !== undefined) setActiveSessionId(u.s);
+    setSearchOpen(u.q !== undefined);
+    setSearchQuery(u.q ?? "");
+    setActiveEventId(u.e ?? null);
+    setTimeout(() => {
+      popInFlight.current = false;
+    }, 0);
+  }, []);
 
   const reloadProjects = useCallback(async () => {
     const r = await fetch("/api/projects");
@@ -109,6 +130,8 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
   useEffect(() => {
     if (!settings.liveUpdates) return;
     if (!activeProjectId || !activeSessionId) return;
+    // Codex sessions have no live-tail stream in v1; skip to avoid infinite reconnect errors.
+    if (activeProjectId.startsWith("codex:")) return;
     const url = `/api/stream/${activeProjectId}/${activeSessionId}`;
     const es = new EventSource(url);
     es.addEventListener("append", (e) => {

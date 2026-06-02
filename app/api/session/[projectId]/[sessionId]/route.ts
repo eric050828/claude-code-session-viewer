@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listSubagents, loadSession } from "@/lib/session-loader";
+import { listSubagents, loadSession } from "@/lib/sources";
 
 export const dynamic = "force-dynamic";
 

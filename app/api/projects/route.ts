@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listProjects } from "@/lib/session-loader";
+import { listProjects } from "@/lib/sources";
 import { warmSearchIndex } from "@/lib/search-index";
 
 export const dynamic = "force-dynamic";

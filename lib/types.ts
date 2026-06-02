@@ -170,11 +170,14 @@ export type SessionEvent =
   | PrLinkEvent
   | (BaseEvent & { [k: string]: unknown });
 
+export type SourceId = "claude" | "codex";
+
 export interface ProjectMeta {
   id: string; // encoded directory name as Claude Code stores it
   decodedPath: string; // best-effort decoded absolute path
   sessionCount: number;
   lastModified: string; // ISO
+  source: SourceId; // NEW
 }
 
 export interface SessionMeta {
@@ -191,6 +194,7 @@ export interface SessionMeta {
   cwd?: string;
   fileSize: number;
   isActive: boolean; // mtime within last 5 min
+  source: SourceId; // NEW
 }
 
 export interface SubagentMeta {
