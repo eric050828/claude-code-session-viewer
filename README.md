@@ -21,22 +21,6 @@
 
 ---
 
-> It's late. A session last week nailed *exactly* the fix you need again — but
-> it's buried in one of hundreds of `.jsonl` files under your agent's logs. You
-> `grep`. You `jq`. You squint at line numbers, lose the thread, and end up
-> re-explaining the whole thing to the agent from scratch.
-
-Your coding agents already write down everything they do — every prompt,
-thought, tool call, diff, and token. It just lands as raw JSONL that no one
-wants to read by hand.
-
-**ccsv** turns that pile into something you can actually browse. It's a local,
-read-only **web viewer + CLI** for coding-agent session logs — Claude Code
-today, OpenAI Codex too — with full-text and structured (`tool:`, `branch:`,
-`has:subagents`…) search, rendered tool calls and diffs, sub-agent drill-in,
-shareable URLs, and a CLI that pipes a clean transcript straight to another
-LLM. Everything stays on your machine; it never writes to your logs.
-
 ## Install
 
 ```bash
