@@ -47,10 +47,19 @@ function hasFlag(args, ...names) {
   return names.some((n) => args.includes(n));
 }
 
+// Parse and validate --source flag from args. Returns "all", "claude", or "codex".
+function parseSource(args) {
+  const val = getArg(args, "--source");
+  if (!val) return "all";
+  if (val === "all" || val === "claude" || val === "codex") return val;
+  throw new Error(`Invalid --source value "${val}". Must be one of: all, claude, codex`);
+}
+
 // ─── projects ──────────────────────────────────────────────────────────────
 async function cmdProjects(args) {
   const json = hasFlag(args, "--json");
-  const projects = await Q.listProjects();
+  const source = parseSource(args);
+  const projects = await Q.listProjects({ source });
   if (json) {
     process.stdout.write(JSON.stringify(projects, null, 2) + "\n");
     return 0;
@@ -61,8 +70,11 @@ async function cmdProjects(args) {
   }
   const maxPath = Math.max(...projects.map((p) => p.path.length));
   for (const p of projects) {
+    const srcTag = c("dim", `[${(p.source || "?").padEnd(6)}]`);
     console.log(
-      c("cyan", p.path.padEnd(maxPath)) +
+      srcTag +
+        "  " +
+        c("cyan", p.path.padEnd(maxPath)) +
         "  " +
         c("dim", `${String(p.sessionCount).padStart(4)} sessions`) +
         "  " +
@@ -77,9 +89,18 @@ async function cmdProjects(args) {
 // ─── sessions ─────────────────────────────────────────────────────────────
 async function cmdSessions(args) {
   const json = hasFlag(args, "--json");
-  const projectId = getArg(args, "--project", "-p");
+  // Accept project id as either --project flag or first positional arg.
+  // Skip values that belong to named flags (--source, --limit, --project, -n, -p).
+  const flagsWithValues = new Set(["--source", "--limit", "-n", "--project", "-p", "--format", "-f"]);
+  const positional = args.filter((a, i) => {
+    if (a.startsWith("-")) return false;
+    if (i > 0 && flagsWithValues.has(args[i - 1])) return false;
+    return true;
+  });
+  const projectId = getArg(args, "--project", "-p") || positional[0];
   const limit = parseInt(getArg(args, "--limit", "-n") || "0", 10);
-  let sessions = await Q.listSessions(projectId);
+  const source = parseSource(args);
+  let sessions = await Q.listSessions(projectId, { source });
   if (limit > 0) sessions = sessions.slice(0, limit);
   if (json) {
     process.stdout.write(
@@ -97,12 +118,14 @@ async function cmdSessions(args) {
   }
   for (const s of sessions) {
     const tools = s.toolUseCount ? c("dim", ` · ${s.toolUseCount} tools`) : "";
-    const tokens = s.usage.total
+    const tokens = s.usage && s.usage.total
       ? c("dim", ` · ${formatTokens(s.usage.total)} tok`)
       : "";
     const branch = s.gitBranch ? c("dim", ` · ${s.gitBranch}`) : "";
+    const srcTag = c("dim", `[${(s.source || "?").padEnd(6)}] `);
     console.log(
-      c("bold", s.id.slice(0, 8)) +
+      srcTag +
+        c("bold", s.id.slice(0, 8)) +
         "  " +
         c("cyan", s.title.slice(0, 70)) +
         "\n  " +
@@ -121,7 +144,7 @@ async function cmdSessions(args) {
 async function cmdShow(args) {
   const id = args.find((a) => !a.startsWith("-"));
   if (!id) {
-    console.error("Usage: ccsv show <session-id> [--format transcript|json|raw] [--limit N] [--thinking]");
+    console.error("Usage: ccsv show <session-id> [--format transcript|json|raw] [--limit N] [--thinking] [--source all|claude|codex]");
     return 2;
   }
   const projectId = getArg(args, "--project", "-p");
@@ -141,7 +164,39 @@ async function cmdShow(args) {
     return 0;
   }
   // transcript
-  const meta = await Q.summarizeSession(session.filePath, session.projectId);
+  // For Codex sessions, compute summary directly from the parsed events since
+  // the rollout JSONL has a different format than Claude sessions.
+  let meta;
+  if (session.source === "codex" || (session.projectId && String(session.projectId).startsWith("codex:"))) {
+    // Build summary from parsed events
+    let title = "(codex session)";
+    let cwd = "";
+    let messageCount = 0;
+    let toolUseCount = 0;
+    for (const ev of session.events) {
+      if (ev.type === "user") {
+        messageCount++;
+        if (title === "(codex session)") {
+          const c2 = ev.message?.content;
+          if (Array.isArray(c2)) {
+            for (const b of c2) {
+              if (b?.type === "text" && b.text) { title = b.text.slice(0, 80); break; }
+            }
+          }
+        }
+      }
+      if (ev.type === "assistant") {
+        messageCount++;
+        const c2 = ev.message?.content;
+        if (Array.isArray(c2)) {
+          for (const b of c2) { if (b?.type === "tool_use") toolUseCount++; }
+        }
+      }
+    }
+    meta = { title, cwd, messageCount, toolUseCount, gitBranch: null, usage: { total: 0 } };
+  } else {
+    meta = await Q.summarizeSession(session.filePath, session.projectId);
+  }
   console.log(c("bold", meta.title));
   console.log(
     c("dim", `${session.id}  ${meta.gitBranch ? "· " + meta.gitBranch + "  " : ""}· ${meta.cwd || ""}`),
@@ -270,13 +325,14 @@ async function cmdTail(args) {
 async function cmdSearch(args) {
   const query = args.find((a) => !a.startsWith("-"));
   if (!query) {
-    console.error("Usage: ccsv search <query> [--limit N] [--project ID] [--json]");
+    console.error("Usage: ccsv search <query> [--limit N] [--project ID] [--json] [--source all|claude|codex]");
     return 2;
   }
   const limit = parseInt(getArg(args, "--limit", "-n") || "30", 10);
   const projectId = getArg(args, "--project", "-p");
   const json = hasFlag(args, "--json");
-  const hits = await Q.searchAll(query, { limit, projectId });
+  const source = parseSource(args);
+  const hits = await Q.searchAll(query, { limit, projectId, source });
   if (json) {
     process.stdout.write(JSON.stringify(hits, null, 2) + "\n");
     return 0;
@@ -303,7 +359,8 @@ async function cmdSearch(args) {
 async function cmdStats(args) {
   const projectId = getArg(args, "--project", "-p");
   const json = hasFlag(args, "--json");
-  const sessions = await Q.listSessions(projectId);
+  const source = parseSource(args);
+  const sessions = await Q.listSessions(projectId, { source });
   const agg = {
     sessions: sessions.length,
     messages: 0,
@@ -315,7 +372,8 @@ async function cmdStats(args) {
   for (const s of sessions) {
     agg.messages += s.messageCount;
     agg.toolUses += s.toolUseCount;
-    for (const k of Object.keys(s.usage)) agg.usage[k] += s.usage[k] || 0;
+    const usage = s.usage || {};
+    for (const k of Object.keys(agg.usage)) agg.usage[k] += usage[k] || 0;
     for (const [tool, n] of Object.entries(s.toolCounts || {})) {
       agg.toolCounts[tool] = (agg.toolCounts[tool] || 0) + n;
     }
@@ -325,7 +383,7 @@ async function cmdStats(args) {
     const p = agg.perProject[s.projectId];
     p.sessions++;
     p.messages += s.messageCount;
-    p.tokens += s.usage.total;
+    p.tokens += (usage.total) || 0;
   }
   if (json) {
     process.stdout.write(JSON.stringify(agg, null, 2) + "\n");
@@ -371,12 +429,15 @@ Query commands (all support --json):
 
 Common flags:
   --json          machine-readable JSON output
+  --source        filter by source: all (default), claude, codex
   -p, --project   filter to a project id (use \`ccsv projects\` to find it)
+                  Codex project ids are prefixed with "codex:"
   -n, --limit/--lines    limit results
   -h, --help
 
 Env:
   CCSV_PROJECTS_DIR  override ~/.claude/projects path
+  CCSV_CODEX_DIR     override ~/.codex/sessions path
   NO_COLOR=1         disable ANSI colours
 `);
   return 0;
