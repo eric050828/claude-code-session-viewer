@@ -30,3 +30,37 @@ test("developer role maps to system", () => {
   );
   expect(events[0].type).toBe("system");
 });
+
+test("exec_command becomes a tool_use(Bash) + tool_result pair", () => {
+  const lines = [
+    { timestamp: "t1", type: "response_item", payload: { type: "function_call", name: "exec_command", arguments: JSON.stringify({ cmd: "ls -la" }), call_id: "c1" } },
+    { timestamp: "t2", type: "response_item", payload: { type: "function_call_output", call_id: "c1", output: "total 0\n" } },
+  ];
+  const events = parseCodexRollout(lines, "s3");
+  const toolUse = events.find((e: any) => e.message?.content?.[0]?.type === "tool_use") as any;
+  expect(toolUse.message.content[0].name).toBe("exec_command");
+  expect(toolUse.message.content[0].input.command).toBe("ls -la");
+  const result = events.find((e: any) => e.message?.content?.[0]?.type === "tool_result") as any;
+  expect(result.message.content[0].content).toContain("total 0");
+  expect(result.message.content[0].tool_use_id).toBe(toolUse.message.content[0].id);
+});
+
+test("unknown MCP tool keeps its name and raw JSON input", () => {
+  const lines = [
+    { timestamp: "t1", type: "response_item", payload: { type: "function_call", name: "meet_join", arguments: JSON.stringify({ meet_url: "x" }), call_id: "c2" } },
+    { timestamp: "t2", type: "response_item", payload: { type: "function_call_output", call_id: "c2", output: "joined" } },
+  ];
+  const events = parseCodexRollout(lines, "s4");
+  const toolUse = events.find((e: any) => e.message?.content?.[0]?.type === "tool_use") as any;
+  expect(toolUse.message.content[0].name).toBe("meet_join");
+  expect(toolUse.message.content[0].input.meet_url).toBe("x");
+});
+
+test("malformed arguments fall back to a raw string input", () => {
+  const events = parseCodexRollout(
+    [{ timestamp: "t", type: "response_item", payload: { type: "function_call", name: "x", arguments: "{not json", call_id: "c3" } }],
+    "s5",
+  );
+  const toolUse = events.find((e: any) => e.message?.content?.[0]?.type === "tool_use") as any;
+  expect(toolUse.message.content[0].input).toEqual({ _raw: "{not json" });
+});

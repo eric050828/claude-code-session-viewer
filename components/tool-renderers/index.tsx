@@ -94,6 +94,10 @@ const REGISTRY: Record<string, ToolRenderer> = {
   TodoWrite: TodoWriteRenderer,
   WebFetch: WebFetchRenderer,
   WebSearch: WebSearchRenderer,
+  // Codex tools — borrow Claude renderers; real name shown on the card.
+  exec_command: BashRenderer,
+  write_stdin: BashRenderer,
+  apply_patch: EditRenderer,
 };
 
 const FALLBACK: ToolRenderer = {
