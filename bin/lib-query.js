@@ -484,7 +484,8 @@ function parseCodexRollout(lines, sessionId) {
       const text = textFromContent(p["content"]);
       if (!text.trim()) continue;
       const evType = roleToEventType(role);
-      if (evType === "system") continue; // drop developer/system noise
+      // Keep developer→system events (collapsed/muted), matching the web
+      // parser (lib/codex-parser.ts) so CLI and web transcripts agree.
       events.push({
         type: evType,
         uuid,
