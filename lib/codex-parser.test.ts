@@ -84,3 +84,15 @@ test("apply_patch maps to Edit input with file_path + strings", () => {
   expect(input.old_string).toContain("const a = 1;");
   expect(input.new_string).toContain("const a = 2;");
 });
+
+test("reasoning summary array extracts .text from items", () => {
+  const events = parseCodexRollout(
+    [{ timestamp: "t", type: "response_item", payload: { type: "reasoning", summary: [{ type: "summary_text", text: "step one" }, { type: "summary_text", text: "step two" }], content: null } }],
+    "s7",
+  );
+  const block = (events[0] as any).message.content[0];
+  expect(block.type).toBe("thinking");
+  expect(block.thinking).toContain("step one");
+  expect(block.thinking).toContain("step two");
+  expect(block.thinking).not.toContain("[object Object]");
+});

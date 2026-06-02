@@ -92,8 +92,26 @@ export function parseApplyPatch(patch: string): {
   };
 }
 
+// Codex reasoning.summary items are objects like { type: "summary_text", text }.
+function textFromSummary(summary: unknown[]): string {
+  return summary
+    .map((s) =>
+      s && typeof s === "object" && typeof (s as { text?: string }).text === "string"
+        ? (s as { text: string }).text
+        : typeof s === "string"
+          ? s
+          : "",
+    )
+    .filter(Boolean)
+    .join("\n");
+}
+
 function parseArgs(raw: unknown): Record<string, unknown> {
-  if (typeof raw !== "string") return (raw as Record<string, unknown>) ?? {};
+  if (typeof raw !== "string") {
+    return raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  }
   try {
     const o = JSON.parse(raw);
     return o && typeof o === "object" ? o : { _raw: raw };
@@ -140,7 +158,7 @@ export function parseCodexRollout(
       const thinking = hasText
         ? typeof content === "string"
           ? content
-          : (summary as unknown[]).map((s) => String(s)).join("\n")
+          : textFromSummary(summary as unknown[])
         : "(reasoning encrypted — content not stored in the rollout)";
       events.push({
         type: "assistant",
