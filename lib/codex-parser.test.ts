@@ -64,3 +64,23 @@ test("malformed arguments fall back to a raw string input", () => {
   const toolUse = events.find((e: any) => e.message?.content?.[0]?.type === "tool_use") as any;
   expect(toolUse.message.content[0].input).toEqual({ _raw: "{not json" });
 });
+
+test("apply_patch maps to Edit input with file_path + strings", () => {
+  const patch = [
+    "*** Begin Patch",
+    "*** Update File: src/app.ts",
+    "@@",
+    "-const a = 1;",
+    "+const a = 2;",
+    "*** End Patch",
+  ].join("\n");
+  const events = parseCodexRollout(
+    [{ timestamp: "t", type: "response_item", payload: { type: "function_call", name: "apply_patch", arguments: JSON.stringify({ input: patch }), call_id: "c9" } }],
+    "s6",
+  );
+  const toolUse = events.find((e: any) => e.message?.content?.[0]?.type === "tool_use") as any;
+  const input = toolUse.message.content[0].input;
+  expect(input.file_path).toBe("src/app.ts");
+  expect(input.old_string).toContain("const a = 1;");
+  expect(input.new_string).toContain("const a = 2;");
+});

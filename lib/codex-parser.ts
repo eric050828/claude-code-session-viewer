@@ -36,12 +36,60 @@ function remapToolInput(name: string, args: Record<string, unknown>): Record<str
     case "write_stdin":
       // Bash renderer; show the written chars as the command line.
       return { ...args, command: args["chars"] ?? "" };
-    case "apply_patch":
-      // Edit renderer mapping is completed in the next task.
-      return args;
+    case "apply_patch": {
+      const raw = String(args["input"] ?? args["patch"] ?? "");
+      const parsed = parseApplyPatch(raw);
+      return parsed ? { ...parsed, _raw: raw } : { _raw: raw };
+    }
     default:
       return args;
   }
+}
+
+/**
+ * Minimal apply_patch parser. Codex emits a single hunk per file in the
+ * `*** Begin Patch / *** Update File: <path>` format with -/+ lines.
+ * Returns the first updated file's before/after text for the Edit renderer.
+ * Multi-file patches: only the first file is surfaced (v1); the full patch
+ * is preserved under _raw for the fallback.
+ */
+export function parseApplyPatch(patch: string): {
+  file_path: string;
+  old_string: string;
+  new_string: string;
+} | null {
+  const lines = patch.split("\n");
+  let file = "";
+  const oldLines: string[] = [];
+  const newLines: string[] = [];
+  let inBody = false;
+  for (const ln of lines) {
+    const upd = ln.match(/^\*\*\* (?:Update|Add|Delete) File: (.+)$/);
+    if (upd) {
+      if (file) break; // only the first file
+      file = upd[1].trim();
+      inBody = true;
+      continue;
+    }
+    if (ln.startsWith("*** ")) {
+      inBody = false;
+      continue;
+    }
+    if (!inBody) continue;
+    if (ln.startsWith("@@")) continue;
+    if (ln.startsWith("-")) oldLines.push(ln.slice(1));
+    else if (ln.startsWith("+")) newLines.push(ln.slice(1));
+    else if (ln.startsWith(" ")) {
+      oldLines.push(ln.slice(1));
+      newLines.push(ln.slice(1));
+    }
+  }
+  if (!file) return null;
+  return {
+    file_path: file,
+    old_string: oldLines.join("\n"),
+    new_string: newLines.join("\n"),
+  };
 }
 
 function parseArgs(raw: unknown): Record<string, unknown> {
