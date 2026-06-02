@@ -2,9 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import Fuse from "fuse.js";
 import { claudeProjectsRoot } from "./claude-paths";
-import { listProjects, listSessions, loadSession } from "./session-loader";
+import { listProjects, listSessions, loadSession } from "./sources";
 import { pMap } from "./cache";
-import type { DistinctValues, SearchHit, SessionEvent } from "./types";
+import type { DistinctValues, SearchHit, SessionEvent, SourceId } from "./types";
 import { extractText, stringifyToolInput, truncate } from "./utils";
 import { type HasFlag, type MatchType, parseQuery, type Token } from "./query-parser";
 
@@ -36,6 +36,7 @@ interface PerSessionIndex {
   hasErrors: boolean;
   /** Last activity timestamp (ms). Falls back to mtime when no events. */
   lastTimestamp: number;
+  source: SourceId;
 }
 
 const ACTIVE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -56,6 +57,7 @@ function extractIndexForEvents(
   sessionTitle: string,
   decodedPath: string,
   fallbackTimestamp: number,
+  source: SourceId,
 ): PerSessionIndex {
   const items: IndexedItem[] = [];
   const toolsUsed = new Set<string>();
@@ -144,6 +146,7 @@ function extractIndexForEvents(
     hasThinking,
     hasErrors,
     lastTimestamp,
+    source,
   };
 }
 
@@ -187,6 +190,7 @@ async function rebuildIfNeeded(): Promise<void> {
       title: string;
       filePath: string;
       decodedPath: string;
+      source: SourceId;
     }> = [];
     for (const project of projects) {
       const sessions = await listSessions(project.id);
@@ -197,6 +201,7 @@ async function rebuildIfNeeded(): Promise<void> {
           title: session.title,
           filePath: session.filePath,
           decodedPath: projectPathById.get(project.id) || "",
+          source: session.source,
         });
       }
     }
@@ -237,6 +242,7 @@ async function rebuildIfNeeded(): Promise<void> {
         t.title,
         t.decodedPath,
         stat.mtimeMs,
+        t.source,
       );
       built.filePath = t.filePath;
       built.mtimeMs = stat.mtimeMs;
@@ -319,6 +325,8 @@ function applyFilters(filters: Token[]): Set<string> {
         return token.resolved ? entry.lastTimestamp >= token.resolved.getTime() : true;
       case "before":
         return token.resolved ? entry.lastTimestamp < token.resolved.getTime() : true;
+      case "source":
+        return entry.source === v;
       case "type":
         // type doesn't filter sessions — it filters items downstream
         return true;

@@ -20,7 +20,8 @@ export type Operator =
   | "has"
   | "type"
   | "before"
-  | "after";
+  | "after"
+  | "source";
 
 export const KNOWN_OPERATORS: Operator[] = [
   "id",
@@ -32,10 +33,14 @@ export const KNOWN_OPERATORS: Operator[] = [
   "type",
   "before",
   "after",
+  "source",
 ];
 
 export const HAS_VALUES = ["subagents", "thinking", "errors", "active"] as const;
 export type HasFlag = (typeof HAS_VALUES)[number];
+
+export const SOURCE_VALUES = ["claude", "codex"] as const;
+export type SourceValue = (typeof SOURCE_VALUES)[number];
 
 export const TYPE_VALUES = [
   "user",
@@ -162,6 +167,9 @@ function validateToken(token: Token): void {
   }
   if (token.key === "type" && !(TYPE_VALUES as readonly string[]).includes(token.value)) {
     token.error = `type: must be one of ${TYPE_VALUES.join("/")}`;
+  }
+  if (token.key === "source" && !(SOURCE_VALUES as readonly string[]).includes(token.value)) {
+    token.error = `source: must be one of ${SOURCE_VALUES.join("/")}`;
   }
   if (token.key === "before" || token.key === "after") {
     const d = resolveDate(token.value);
