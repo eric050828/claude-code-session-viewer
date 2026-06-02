@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import Fuse from "fuse.js";
 import { claudeProjectsRoot } from "./claude-paths";
+import { findRolloutFiles } from "./codex-paths";
 import { listProjects, listSessions, loadSession } from "./sources";
 import { pMap } from "./cache";
 import type { DistinctValues, SearchHit, SessionEvent, SourceId } from "./types";
@@ -170,6 +171,17 @@ async function quickSignature(): Promise<string> {
       } catch {}
     }
   }
+  // Include Codex rollout files so the index rebuilds when Codex sessions
+  // change too — otherwise the cache would only invalidate on Claude edits.
+  try {
+    const rollouts = await findRolloutFiles();
+    for (const f of rollouts) {
+      try {
+        const s = await fs.stat(f);
+        parts.push(`${f}:${s.mtimeMs}:${s.size}`);
+      } catch {}
+    }
+  } catch {}
   return parts.join("|");
 }
 
