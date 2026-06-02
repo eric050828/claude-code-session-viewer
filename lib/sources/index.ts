@@ -7,6 +7,11 @@ import type {
 } from "../types";
 import { claudeSource } from "./claude";
 import type { SessionSource } from "./types";
+import {
+  listCodexProjects,
+  listCodexSessions,
+  loadCodexSession,
+} from "../codex-loader";
 
 const CODEX_PREFIX = "codex:";
 
@@ -21,23 +26,22 @@ export function decodeProjectId(id: string): { source: SourceId; rawId: string }
   return { source: "claude", rawId: id };
 }
 
-// codexSource is wired in a later task; until then it lists nothing.
-const codexStub: SessionSource = {
+const codexSource: SessionSource = {
   id: "codex",
-  listProjects: async () => [],
-  listSessions: async () => [],
-  loadSession: async () => [],
+  listProjects: listCodexProjects,
+  listSessions: listCodexSessions,
+  loadSession: loadCodexSession,
   listSubagents: async () => [],
 };
 
 function sourceFor(source: SourceId): SessionSource {
-  return source === "codex" ? codexStub : claudeSource;
+  return source === "codex" ? codexSource : claudeSource;
 }
 
 export async function listProjects(): Promise<ProjectMeta[]> {
   const [claude, codex] = await Promise.all([
     claudeSource.listProjects(),
-    codexStub.listProjects(),
+    codexSource.listProjects(),
   ]);
   return [
     ...claude.map((p) => ({ ...p, id: encodeProjectId("claude", p.id) })),
