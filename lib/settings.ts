@@ -23,6 +23,8 @@ export interface Settings {
   autoScrollBottom: boolean;
   /** Hide the project+session sidebar to give the conversation more room. */
   sidebarCollapsed: boolean;
+  /** Filter the project tree by source. "all" shows everything. */
+  sourceFilter: "all" | "claude" | "codex";
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -33,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   liveUpdates: true,
   autoScrollBottom: true,
   sidebarCollapsed: false,
+  sourceFilter: "all",
 };
 
 /** Resolve the active combo for an action (user override or default). */
@@ -59,6 +62,9 @@ function validateSettings(parsed: unknown): Settings {
   const next: Settings = { ...DEFAULT_SETTINGS };
   if (p.theme === "light" || p.theme === "dark" || p.theme === "system") {
     next.theme = p.theme;
+  }
+  if (p.sourceFilter === "all" || p.sourceFilter === "claude" || p.sourceFilter === "codex") {
+    next.sourceFilter = p.sourceFilter;
   }
   if (isValidShortcuts(p.shortcuts)) next.shortcuts = p.shortcuts;
   for (const key of [

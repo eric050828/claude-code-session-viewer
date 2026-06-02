@@ -3,6 +3,7 @@
 import { Folder, FolderOpen } from "lucide-react";
 import type { ProjectMeta } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/lib/settings";
 import { RelativeTime } from "./relative-time";
 
 export function ProjectTree({
@@ -14,16 +15,20 @@ export function ProjectTree({
   activeId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const { sourceFilter } = useSettings();
+  const visibleProjects = projects.filter(
+    (p) => sourceFilter === "all" || p.source === sourceFilter,
+  );
   return (
     <nav aria-labelledby="projects-heading" className="px-2 py-3">
       <h2
         id="projects-heading"
         className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
       >
-        Projects ({projects.length})
+        Projects ({visibleProjects.length})
       </h2>
       <ul className="space-y-0.5">
-        {projects.map((p) => {
+        {visibleProjects.map((p) => {
           const active = p.id === activeId;
           const segments = p.decodedPath.split("/").filter(Boolean);
           const display = segments[segments.length - 1] || p.decodedPath;
@@ -55,6 +60,18 @@ export function ProjectTree({
                 >
                   {display}
                 </span>
+                {sourceFilter === "all" && (
+                  <span
+                    className={cn(
+                      "rounded px-1 text-[9px] font-medium uppercase",
+                      p.source === "codex"
+                        ? "bg-violet-500/15 text-violet-700 dark:text-violet-300"
+                        : "bg-brand/15 text-brand",
+                    )}
+                  >
+                    {p.source}
+                  </span>
+                )}
                 <span className="text-[10px] tabular-nums text-muted-foreground">
                   {p.sessionCount}
                 </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCw, Search, Settings as Gear, Sparkles } from "lucide-react";
+import { SourceFilter } from "./source-filter";
 
 export function TopBar({
   onOpenSearch,
@@ -44,6 +45,7 @@ export function TopBar({
         </kbd>
       </button>
       <div className="flex items-center justify-end gap-1">
+        <SourceFilter />
         <button
           type="button"
           onClick={onOpenSettings}

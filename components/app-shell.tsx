@@ -109,6 +109,8 @@ export function AppShell({ initialProjects }: { initialProjects: ProjectMeta[] }
   useEffect(() => {
     if (!settings.liveUpdates) return;
     if (!activeProjectId || !activeSessionId) return;
+    // Codex sessions have no live-tail stream in v1; skip to avoid infinite reconnect errors.
+    if (activeProjectId.startsWith("codex:")) return;
     const url = `/api/stream/${activeProjectId}/${activeSessionId}`;
     const es = new EventSource(url);
     es.addEventListener("append", (e) => {
